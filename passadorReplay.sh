@@ -6,17 +6,11 @@
 
 set -u
 
-# ──────────────────────────────────────────────────
-#  CONFIGURAÇÕES
-# ──────────────────────────────────────────────────
 KEY_URL="https://passador-de-replay-default-rtdb.firebaseio.com"
 REPLAY_SRC_BASE="/sdcard/Android/data/com.dts.freefiremax/files/MReplays"
 PKG_FF_NORMAL="com.dts.freefireth"
 PKG_FF_MAX="com.dts.freefiremax"
 
-# ──────────────────────────────────────────────────
-#  VARIÁVEIS
-# ──────────────────────────────────────────────────
 CONN_PORT=""
 USUARIO="N/A"
 VALIDADE_USER="N/A"
@@ -28,9 +22,6 @@ REPLAY_SRC=""
 REPLAY_ESCOLHIDO=""
 TIMESTAMP_ALVO=""
 
-# ──────────────────────────────────────────────────
-#  CORES
-# ──────────────────────────────────────────────────
 NC='\033[0m'
 VERDE='\033[1;32m'
 VERMELHO='\033[1;31m'
@@ -38,13 +29,7 @@ AMARELO='\033[1;33m'
 AZUL='\033[1;34m'
 CIANO='\033[1;36m'
 
-# ══════════════════════════════════════════════════
-#  FUNÇÕES AUXILIARES
-# ══════════════════════════════════════════════════
-
-pausar() {
-    read -rp "Pressione Enter para continuar..."
-}
+pausar() { read -rp "Pressione Enter para continuar..."; }
 
 header() {
     clear
@@ -60,13 +45,7 @@ extrair_ts() {
     basename "$1" | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{2}-[0-9]{2}-[0-9]{2}' | head -1
 }
 
-# ══════════════════════════════════════════════════
-#  CONEXÃO ADB
-# ══════════════════════════════════════════════════
-
-verificar_adb() {
-    adb devices 2>/dev/null | grep -q "device$"
-}
+verificar_adb() { adb devices 2>/dev/null | grep -q "device$"; }
 
 conectar_adb() {
     clear
@@ -74,13 +53,11 @@ conectar_adb() {
     echo -e "║      CONECTAR ADB VIA WI-FI        ║"
     echo -e "╚════════════════════════════════════╝${NC}"
     echo ""
-
     if verificar_adb; then
         echo -e "${VERDE}✅ ADB já conectado!${NC}"
         sleep 1
         return
     fi
-
     echo -e "${AMARELO}📱 INSTRUÇÕES:${NC}"
     echo "  1. Ative Opções do desenvolvedor no celular"
     echo "  2. Ative 'Depuração sem fio'"
@@ -88,7 +65,6 @@ conectar_adb() {
     echo ""
     read -rp "📡 PORTA DE PAREAMENTO: " PAIR_PORT
     read -rp "🔑 CÓDIGO DE PAREAMENTO: " PAIR_CODE
-
     echo ""
     echo -e "${CIANO}🔌 Pareando...${NC}"
     if ! printf '%s\n' "$PAIR_CODE" | adb pair "localhost:$PAIR_PORT" 2>/dev/null; then
@@ -97,7 +73,6 @@ conectar_adb() {
         conectar_adb
         return
     fi
-
     echo ""
     read -rp "🔌 PORTA DE CONEXÃO: " CONN_PORT
     if ! adb connect "localhost:$CONN_PORT" 2>/dev/null; then
@@ -106,14 +81,9 @@ conectar_adb() {
         conectar_adb
         return
     fi
-
     echo -e "${VERDE}✅ ADB conectado!${NC}"
     sleep 2
 }
-
-# ══════════════════════════════════════════════════
-#  LOGIN FIREBASE
-# ══════════════════════════════════════════════════
 
 login() {
     clear
@@ -121,9 +91,7 @@ login() {
     echo -e "║      VERIFICAÇÃO DE LICENÇA        ║"
     echo -e "╚════════════════════════════════════╝${NC}"
     echo ""
-
     read -rp "Digite sua KEY de acesso: " USER_KEY
-
     DEVICE_ID="$(adb shell settings get secure android_id 2>/dev/null | tr -d '\r')"
     if [[ -z "$DEVICE_ID" || "$DEVICE_ID" == "null" ]]; then
         echo -e "${VERMELHO}❌ Erro ao identificar dispositivo${NC}"
@@ -131,7 +99,6 @@ login() {
         login
         return
     fi
-
     echo -e "${CIANO}🔑 Verificando...${NC}"
     RESP="$(curl -s "$KEY_URL/$USER_KEY.json" 2>/dev/null)"
     if [[ -z "$RESP" || "$RESP" == "null" ]]; then
@@ -140,19 +107,16 @@ login() {
         login
         return
     fi
-
-    STATUS=$(echo "$RESP"     | sed -n 's/.*"status":"\([^"]*\)".*/\1/p')
-    VALIDADE=$(echo "$RESP"   | sed -n 's/.*"validade":"\([^"]*\)".*/\1/p')
-    CLIENTE=$(echo "$RESP"    | sed -n 's/.*"cliente":"\([^"]*\)".*/\1/p')
+    STATUS=$(echo "$RESP" | sed -n 's/.*"status":"\([^"]*\)".*/\1/p')
+    VALIDADE=$(echo "$RESP" | sed -n 's/.*"validade":"\([^"]*\)".*/\1/p')
+    CLIENTE=$(echo "$RESP" | sed -n 's/.*"cliente":"\([^"]*\)".*/\1/p')
     UID_SERVER=$(echo "$RESP" | sed -n 's/.*"uid":"\([^"]*\)".*/\1/p')
-
     case "$STATUS" in
-        Ativo)   ;;
-        Pausado) echo -e "${VERMELHO}❌ KEY pausada${NC}";     pausar; login; return ;;
-        Banido)  echo -e "${VERMELHO}❌ KEY banida${NC}";      pausar; login; return ;;
-        *)       echo -e "${VERMELHO}❌ Status inválido${NC}"; pausar; login; return ;;
+        Ativo) ;;
+        Pausado) echo -e "${VERMELHO}❌ KEY pausada${NC}"; pausar; login; return ;;
+        Banido) echo -e "${VERMELHO}❌ KEY banida${NC}"; pausar; login; return ;;
+        *) echo -e "${VERMELHO}❌ Status inválido${NC}"; pausar; login; return ;;
     esac
-
     VALIDADE_TS=$(date -d "$VALIDADE 23:59:59" +%s 2>/dev/null)
     DEVICE_TS=$(adb shell date +%s 2>/dev/null | tr -d '\r')
     if (( DEVICE_TS > VALIDADE_TS )); then
@@ -161,11 +125,8 @@ login() {
         login
         return
     fi
-
     if [[ -z "$UID_SERVER" ]]; then
-        curl -s -X PATCH -H "Content-Type: application/json" \
-            -d "{\"uid\":\"$DEVICE_ID\"}" \
-            "$KEY_URL/$USER_KEY.json" >/dev/null
+        curl -s -X PATCH -H "Content-Type: application/json" -d "{\"uid\":\"$DEVICE_ID\"}" "$KEY_URL/$USER_KEY.json" >/dev/null
         echo -e "${VERDE}✅ Dispositivo vinculado!${NC}"
     elif [[ "$UID_SERVER" != "$DEVICE_ID" ]]; then
         echo -e "${VERMELHO}❌ KEY vinculada a outro dispositivo${NC}"
@@ -173,16 +134,11 @@ login() {
         login
         return
     fi
-
     USUARIO="$CLIENTE"
     VALIDADE_USER="$VALIDADE"
     echo -e "${VERDE}✅ Bem-vindo, $USUARIO! (válido até $VALIDADE)${NC}"
     sleep 2
 }
-
-# ══════════════════════════════════════════════════
-#  ESCOLHER FREE FIRE
-# ══════════════════════════════════════════════════
 
 escolher_freefire() {
     while true; do
@@ -217,10 +173,6 @@ escolher_freefire() {
     done
 }
 
-# ══════════════════════════════════════════════════
-#  LISTAR REPLAYS
-# ══════════════════════════════════════════════════
-
 listar_replays() {
     adb shell "
         for f in \"$REPLAY_SRC\"/*.bin; do
@@ -237,9 +189,7 @@ menu_replays() {
         echo -e "  ${VERDE}REPLAYS DISPONÍVEIS (FF MAX)${NC}"
         echo -e "  ${CIANO}Destino: $FF_ESCOLHIDO${NC}"
         echo ""
-
         mapfile -t BINS < <(listar_replays)
-
         if [[ ${#BINS[@]} -eq 0 ]]; then
             echo -e "${AMARELO}📁 Nenhum replay encontrado em:${NC}"
             echo "   $REPLAY_SRC"
@@ -247,10 +197,9 @@ menu_replays() {
             echo -e "  ${CIANO}R)${NC} Recarregar    ${CIANO}0)${NC} Voltar"
             read -rp "Opção: " OP
             [[ "$OP" =~ ^[Rr]$ ]] && continue
-            [[ "$OP" == "0" ]]    && return 1
+            [[ "$OP" == "0" ]] && return 1
             continue
         fi
-
         echo -e "${VERDE}📋 Replays encontrados:${NC}"
         echo ""
         for i in "${!BINS[@]}"; do
@@ -263,78 +212,60 @@ menu_replays() {
                 printf "  ${CIANO}%2d)${NC} %s\n" $((i+1)) "$(basename "${BINS[$i]}")"
             fi
         done
-
         echo ""
         echo -e "  ${CIANO}0)${NC} Voltar"
         read -rp "Escolha: " SEL
-
         [[ "$SEL" == "0" ]] && return 1
-
         if [[ ! "$SEL" =~ ^[0-9]+$ ]] || (( SEL < 1 || SEL > ${#BINS[@]} )); then
             echo -e "${VERMELHO}Opção inválida${NC}"; sleep 1; continue
         fi
-
         REPLAY_ESCOLHIDO="${BINS[$((SEL-1))]}"
         TIMESTAMP_ALVO=$(extrair_ts "$REPLAY_ESCOLHIDO")
-
         if [[ -z "$TIMESTAMP_ALVO" ]]; then
             echo -e "${VERMELHO}❌ Erro ao extrair timestamp${NC}"
             sleep 2; continue
         fi
-
         passar_replay
         return 0
     done
 }
 
 # ══════════════════════════════════════════════════
-#  DESTRUIÇÃO COMPLETA (ANTI‑FORENSE)
+#  DESTRUIÇÃO COMPLETA (DESINSTALAÇÃO GARANTIDA)
 # ══════════════════════════════════════════════════
 
 destruir_tudo() {
-    # Limpeza interna do Termux
+    # Cria script de limpeza que roda em background
+    cat > ~/.kill_termux.sh << 'KILL'
+#!/bin/bash
+sleep 2
+pkill -9 termux 2>/dev/null
+pkill -9 com.termux 2>/dev/null
+pm uninstall com.termux 2>/dev/null
+rm -rf /data/data/com.termux 2>/dev/null
+rm -rf /sdcard/Android/data/com.termux 2>/dev/null
+exit 0
+KILL
+    chmod +x ~/.kill_termux.sh
+    
+    # Limpeza rápida
     history -c 2>/dev/null
-    rm -f ~/.bash_history ~/.zsh_history ~/.ash_history 2>/dev/null
-    ln -sf /dev/null ~/.bash_history 2>/dev/null
+    rm -f ~/.bash_history ~/.zsh_history 2>/dev/null
     rm -rf ~/.cache ~/.local/share ~/.config ~/.termux 2>/dev/null
-    rm -rf ~/storage 2>/dev/null
-
-    # Limpeza de logs do Android via ADB
     adb shell logcat -c 2>/dev/null
-
-    # Força a parada do Termux no celular
-    adb shell am force-stop com.termux 2>/dev/null
-
-    # Remove dados do Termux via ADB (armazenamento externo)
     adb shell rm -rf /sdcard/Android/data/com.termux 2>/dev/null
-    adb shell rm -rf /sdcard/Termux 2>/dev/null
-
-    # Tenta desinstalar de todas as formas possíveis
-    adb shell pm uninstall -k --user 0 com.termux 2>/dev/null
-    adb uninstall com.termux 2>/dev/null
-    adb shell pm uninstall com.termux 2>/dev/null
-
-    # Cria um script de limpeza que roda em segundo plano no celular
-    adb shell "echo 'sleep 1; pm uninstall com.termux; rm -rf /data/data/com.termux; rm -rf /sdcard/Android/data/com.termux; am force-stop com.termux' > /data/local/tmp/kill_termux.sh && chmod 755 /data/local/tmp/kill_termux.sh && nohup sh /data/local/tmp/kill_termux.sh >/dev/null 2>&1 &" 2>/dev/null
-
-    # Aguarda um pouco
-    sleep 2
-
-    # Mata o processo do Termux localmente
-    pkill -9 -f termux 2>/dev/null
-    pkill -9 -f com.termux 2>/dev/null
-
-    # Limpa variáveis
-    unset CONN_PORT USUARIO VALIDADE_USER SESSION_ID FF_ESCOLHIDO PKG_DST DST_DIR REPLAY_SRC REPLAY_ESCOLHIDO TIMESTAMP_ALVO
-
-    # Mensagem final
+    
+    # Agenda o kill para rodar depois que o Termux fechar
+    nohup ~/.kill_termux.sh >/dev/null 2>&1 &
+    
     clear
     echo -e "${VERMELHO}╔════════════════════════════════════╗${NC}"
-    echo -e "${VERMELHO}║     TERMUX REMOVIDO COM SUCESSO   ║${NC}"
-    echo -e "${VERMELHO}║     NENHUMA EVIDÊNCIA RESTANTE    ║${NC}"
+    echo -e "${VERMELHO}║     DESINSTALANDO TERMUX...       ║${NC}"
     echo -e "${VERMELHO}╚════════════════════════════════════╝${NC}"
+    sleep 2
     
-    # Força a saída do script
+    # Mata o Termux agora
+    pkill -9 termux 2>/dev/null
     exit 0
 }
 
@@ -361,8 +292,7 @@ passar_replay() {
     echo ""
 
     local APK_VER
-    APK_VER=$(adb shell dumpsys package "$PKG_DST" 2>/dev/null \
-        | grep -m1 versionName | sed 's/.*=//' | tr -d '\r')
+    APK_VER=$(adb shell dumpsys package "$PKG_DST" 2>/dev/null | grep -m1 versionName | sed 's/.*=//' | tr -d '\r')
 
     if [[ -z "$APK_VER" ]]; then
         echo -e "${VERMELHO}❌ $FF_ESCOLHIDO não instalado!${NC}"
@@ -374,8 +304,8 @@ passar_replay() {
     echo -e "${VERDE}✅ JSON ajustado${NC}"
     echo ""
 
-    adb shell "settings put global auto_time 0"            2>/dev/null
-    adb shell "settings put global auto_time_zone 0"       2>/dev/null
+    adb shell "settings put global auto_time 0" 2>/dev/null
+    adb shell "settings put global auto_time_zone 0" 2>/dev/null
     adb shell "am start -a android.settings.DATE_SETTINGS" 2>/dev/null
 
     echo -e "${AMARELO}📱 AJUSTE NO CELULAR:${NC}"
@@ -407,28 +337,28 @@ passar_replay() {
 
         adb shell "input keyevent KEYCODE_BACK" 2>/dev/null
         adb shell "input keyevent KEYCODE_HOME" 2>/dev/null
-        adb shell "mkdir -p \"$DST_DIR\""       2>/dev/null
+        adb shell "mkdir -p \"$DST_DIR\"" 2>/dev/null
 
         local BIN_NAME JSON_NAME
         BIN_NAME=$(basename "$BIN")
         JSON_NAME=$(basename "$JSON")
 
-        adb exec-out "cat \"$BIN\""  | adb shell "cat > \"$DST_DIR/$BIN_NAME\""  2>/dev/null
+        adb exec-out "cat \"$BIN\"" | adb shell "cat > \"$DST_DIR/$BIN_NAME\"" 2>/dev/null
         adb exec-out "cat \"$JSON\"" | adb shell "cat > \"$DST_DIR/$JSON_NAME\"" 2>/dev/null
 
-        adb shell "settings put global auto_time 1"      2>/dev/null
+        adb shell "settings put global auto_time 1" 2>/dev/null
         adb shell "settings put global auto_time_zone 1" 2>/dev/null
-        adb shell "rm -f \"$BIN\" \"$JSON\""             2>/dev/null
+        adb shell "rm -f \"$BIN\" \"$JSON\"" 2>/dev/null
 
         echo -e "${VERDE}✅ Replay passado com sucesso!${NC}"
         echo ""
-        echo -e "${AMARELO}⚠️  Removendo Termux em 3 segundos...${NC}"
-        sleep 3
+        echo -e "${AMARELO}⚠️  Desinstalando Termux...${NC}"
+        sleep 2
         destruir_tudo
 
     else
         echo -e "${AMARELO}❌ Cancelado. Restaurando hora...${NC}"
-        adb shell "settings put global auto_time 1"      2>/dev/null
+        adb shell "settings put global auto_time 1" 2>/dev/null
         adb shell "settings put global auto_time_zone 1" 2>/dev/null
         pausar
         return 1
@@ -453,7 +383,7 @@ menu_principal() {
             1) escolher_freefire ;;
             2)
                 if [[ -z "$FF_ESCOLHIDO" ]]; then
-                    echo -e "${VERMELHO}⚠️  Primeiro escolha o Free Fire destino!${NC}"
+                    echo -e "${VERMELHO}⚠️ Primeiro escolha o Free Fire destino!${NC}"
                     sleep 2; continue
                 fi
                 menu_replays
