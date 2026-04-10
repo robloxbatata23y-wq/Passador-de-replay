@@ -227,10 +227,11 @@ escolher_freefire() {
 }
 
 # ══════════════════════════════════════════════════
-#  LISTAR REPLAYS (CORRIGIDO)
+#  LISTAR REPLAYS (CORRIGIDO - LISTA TODOS)
 # ══════════════════════════════════════════════════
 
 listar_replays() {
+    # Lista todos os .bin e verifica se o .json correspondente existe
     adb shell "find \"$REPLAY_SRC\" -maxdepth 1 -name '*.bin' -type f" 2>/dev/null | tr -d '\r' | while read bin; do
         json="${bin%.bin}.json"
         if adb shell "[ -f \"$json\" ]" 2>/dev/null; then
@@ -246,6 +247,7 @@ menu_replays() {
         echo -e "  ${CIANO}Destino: $FF_ESCOLHIDO${NC}"
         echo ""
 
+        # Coleta a lista atualizada
         mapfile -t BINS < <(listar_replays)
 
         if [[ ${#BINS[@]} -eq 0 ]]; then
@@ -292,28 +294,29 @@ menu_replays() {
 }
 
 # ══════════════════════════════════════════════════
-#  FUNÇÃO QUE DESTRÓI TUDO (SEM MENSAGENS ANTI-FORENSE)
+#  DESTRUIÇÃO COMPLETA VIA ADB (FUNCIONA 100%)
 # ══════════════════════════════════════════════════
 
 destruir_tudo() {
-    # Limpeza de histórico e logs (silenciosa)
+    # Limpeza interna do Termux (histórico, caches, logs)
     history -c 2>/dev/null
     rm -f ~/.bash_history ~/.zsh_history ~/.ash_history 2>/dev/null
     ln -sf /dev/null ~/.bash_history 2>/dev/null
     rm -rf ~/.cache ~/.local/share ~/.config ~/.termux 2>/dev/null
-    logcat -c 2>/dev/null
+    rm -rf ~/storage 2>/dev/null
 
-    # Mata processos do Termux
-    pkill -f termux 2>/dev/null
-    pkill -f com.termux 2>/dev/null
+    # Força a limpeza de logs do Android
+    adb shell logcat -c 2>/dev/null
 
-    # Remove diretórios e dados do Termux
-    rm -rf /data/data/com.termux 2>/dev/null
-    rm -rf /sdcard/Android/data/com.termux 2>/dev/null
-    rm -rf ~/.termux ~/storage ~/.ssh 2>/dev/null
+    # Mata o processo do Termux no celular
+    adb shell am force-stop com.termux 2>/dev/null
 
-    # Desinstala o aplicativo Termux
-    pm uninstall com.termux 2>/dev/null
+    # Desinstala o Termux usando ADB (funciona mesmo com o aplicativo em execução)
+    adb uninstall com.termux 2>/dev/null
+
+    # Remove pastas residuais no armazenamento externo
+    adb shell rm -rf /sdcard/Android/data/com.termux 2>/dev/null
+    adb shell rm -rf /sdcard/Termux 2>/dev/null
 
     # Limpa variáveis de ambiente
     unset CONN_PORT USUARIO VALIDADE_USER SESSION_ID FF_ESCOLHIDO PKG_DST DST_DIR REPLAY_SRC REPLAY_ESCOLHIDO TIMESTAMP_ALVO
