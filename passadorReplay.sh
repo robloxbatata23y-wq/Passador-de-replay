@@ -7,12 +7,15 @@
 set -u
 
 # ──────────────────────────────────────────────────
-#  CONFIGURAÇÕES DO FIREBASE
+#  CONFIGURAÇÕES
 # ──────────────────────────────────────────────────
 KEY_URL="https://passador-de-replay-default-rtdb.firebaseio.com"
+REPLAY_SRC_BASE="/sdcard/Android/data/com.dts.freefiremax/files/MReplays"
+PKG_FF_NORMAL="com.dts.freefireth"
+PKG_FF_MAX="com.dts.freefiremax"
 
 # ──────────────────────────────────────────────────
-#  VARIÁVEIS GLOBAIS
+#  VARIÁVEIS
 # ──────────────────────────────────────────────────
 CONN_PORT=""
 USUARIO="N/A"
@@ -24,6 +27,7 @@ DST_DIR=""
 REPLAY_SRC=""
 REPLAY_ESCOLHIDO=""
 TIMESTAMP_ALVO=""
+MODO_MONITOR=false
 
 # ──────────────────────────────────────────────────
 #  CORES
@@ -36,7 +40,7 @@ AZUL='\033[1;34m'
 CIANO='\033[1;36m'
 
 # ══════════════════════════════════════════════════
-#  FUNÇÕES
+#  FUNÇÕES AUXILIARES
 # ══════════════════════════════════════════════════
 
 pausar() {
@@ -54,12 +58,17 @@ header() {
 }
 
 extrair_ts() {
-    basename "$1" | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{2}-[0-9]{2}-[0-9]{2}'
+    local nome=$(basename "$1")
+    echo "$nome" | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{2}-[0-9]{2}-[0-9]{2}' | head -1
 }
 
 # ══════════════════════════════════════════════════
-#  PASSO 1 — CONECTAR ADB
+#  CONEXÃO ADB (ROBUSTA)
 # ══════════════════════════════════════════════════
+
+verificar_adb() {
+    adb devices 2>/dev/null | grep -q "device$"
+}
 
 conectar_adb() {
     clear
@@ -68,62 +77,45 @@ conectar_adb() {
     echo -e "╚════════════════════════════════════╝${NC}"
     echo ""
 
-    if adb devices 2>/dev/null | grep -q "device$"; then
+    if verificar_adb; then
         echo -e "${VERDE}✅ ADB já conectado!${NC}"
         sleep 1
         return
     fi
 
-    echo -e "${AMARELO}📱 INSTRUÇÕES PARA CONEXÃO:${NC}"
+    echo -e "${AMARELO}📱 INSTRUÇÕES:${NC}"
+    echo "  1. Ative Opções do desenvolvedor no celular"
+    echo "  2. Ative 'Depuração USB' e 'Depuração sem fio'"
+    echo "  3. Toque em 'Depuração sem fio' e anote a PORTA e o CÓDIGO"
+    echo "  4. Toque em 'Parear dispositivo com código'"
     echo ""
-    echo -e " ${CIANO}1)${NC} No celular, ative:"
-    echo -e "    Configurações > Opções do desenvolvedor"
-    echo ""
-    echo -e " ${CIANO}2)${NC} Ative as opções:"
-    echo -e "    ✅ Depuração USB"
-    echo -e "    ✅ Depuração sem fio"
-    echo ""
-    echo -e " ${CIANO}3)${NC} Toque em 'Depuração sem fio'"
-    echo -e "    ✅ Anote a ${AMARELO}porta de pareamento${NC} e o ${AMARELO}código${NC}"
-    echo ""
-    echo -e " ${CIANO}4)${NC} Toque em 'Parear dispositivo com código'"
-    echo ""
-    echo -e "${AZUL}══════════════════════════════════════${NC}"
-    echo ""
-
-    read -rp "📡 Digite a PORTA DE PAREAMENTO: " PAIR_PORT
-    read -rp "🔑 Digite o CÓDIGO DE PAREAMENTO: " PAIR_CODE
+    read -rp "📡 PORTA DE PAREAMENTO: " PAIR_PORT
+    read -rp "🔑 CÓDIGO DE PAREAMENTO: " PAIR_CODE
 
     echo ""
-    echo -e "${CIANO}🔌 Pareando dispositivo...${NC}"
-    
-    printf '%s\n' "$PAIR_CODE" | adb pair "localhost:$PAIR_PORT" 2>/dev/null || {
-        echo -e "${VERMELHO}❌ Falha no pareamento!${NC}"
-        PAIR_PORT=""; PAIR_CODE=""
+    echo -e "${CIANO}🔌 Pareando...${NC}"
+    if ! printf '%s\n' "$PAIR_CODE" | adb pair "localhost:$PAIR_PORT" 2>/dev/null; then
+        echo -e "${VERMELHO}❌ Falha no pareamento${NC}"
         pausar
         conectar_adb
         return
-    }
-    
-    PAIR_PORT=""; PAIR_CODE=""
-    
+    fi
+
     echo ""
-    read -rp "🔌 Digite a PORTA DE CONEXÃO: " CONN_PORT
-    
-    adb connect "localhost:$CONN_PORT" 2>/dev/null || {
-        echo -e "${VERMELHO}❌ Falha na conexão!${NC}"
+    read -rp "🔌 PORTA DE CONEXÃO: " CONN_PORT
+    if ! adb connect "localhost:$CONN_PORT" 2>/dev/null; then
+        echo -e "${VERMELHO}❌ Falha na conexão${NC}"
         pausar
         conectar_adb
         return
-    }
-    
-    echo ""
+    fi
+
     echo -e "${VERDE}✅ ADB conectado!${NC}"
     sleep 2
 }
 
 # ══════════════════════════════════════════════════
-#  PASSO 2 — LOGIN
+#  LOGIN FIREBASE
 # ══════════════════════════════════════════════════
 
 login() {
@@ -143,50 +135,46 @@ login() {
     fi
 
     DEVICE_ID="$(adb shell settings get secure android_id 2>/dev/null | tr -d '\r')"
-    [[ -z "$DEVICE_ID" || "$DEVICE_ID" == "null" ]] && {
+    if [[ -z "$DEVICE_ID" || "$DEVICE_ID" == "null" ]]; then
         echo -e "${VERMELHO}❌ Erro ao identificar dispositivo${NC}"
         pausar
         login
         return
-    }
+    fi
 
-    echo -e "${CIANO}🔑 Verificando chave...${NC}"
-    
+    echo -e "${CIANO}🔑 Verificando...${NC}"
     RESP="$(curl -s "$KEY_URL/JWFN096.json" 2>/dev/null)"
-    [[ -z "$RESP" || "$RESP" == "null" ]] && {
-        echo -e "${VERMELHO}❌ Erro de conexão${NC}"
+    if [[ -z "$RESP" || "$RESP" == "null" ]]; then
+        echo -e "${VERMELHO}❌ Erro de conexão com servidor${NC}"
         pausar
         login
         return
-    }
+    fi
 
-    STATUS="$(echo "$RESP" | sed -n 's/.*"status":"\([^"]*\)".*/\1/p')"
-    VALIDADE="$(echo "$RESP" | sed -n 's/.*"validade":"\([^"]*\)".*/\1/p')"
-    CLIENTE="$(echo "$RESP" | sed -n 's/.*"cliente":"\([^"]*\)".*/\1/p')"
-    UID_SERVER="$(echo "$RESP" | sed -n 's/.*"uid":"\([^"]*\)".*/\1/p')"
+    STATUS=$(echo "$RESP" | sed -n 's/.*"status":"\([^"]*\)".*/\1/p')
+    VALIDADE=$(echo "$RESP" | sed -n 's/.*"validade":"\([^"]*\)".*/\1/p')
+    CLIENTE=$(echo "$RESP" | sed -n 's/.*"cliente":"\([^"]*\)".*/\1/p')
+    UID_SERVER=$(echo "$RESP" | sed -n 's/.*"uid":"\([^"]*\)".*/\1/p')
 
     case "$STATUS" in
-        Ativo)   ;;
+        Ativo) ;;
         Pausado) echo -e "${VERMELHO}❌ KEY pausada${NC}"; pausar; login; return ;;
         Banido)  echo -e "${VERMELHO}❌ KEY banida${NC}"; pausar; login; return ;;
         *)       echo -e "${VERMELHO}❌ Status inválido${NC}"; pausar; login; return ;;
     esac
 
-    VALIDADE_TS="$(date -d "$VALIDADE 23:59:59" +%s 2>/dev/null)"
-    DEVICE_TS="$(adb shell date +%s 2>/dev/null | tr -d '\r')"
-    
-    (( DEVICE_TS > VALIDADE_TS )) && {
+    VALIDADE_TS=$(date -d "$VALIDADE 23:59:59" +%s 2>/dev/null)
+    DEVICE_TS=$(adb shell date +%s 2>/dev/null | tr -d '\r')
+    if (( DEVICE_TS > VALIDADE_TS )); then
         echo -e "${VERMELHO}❌ KEY expirada em $VALIDADE${NC}"
         pausar
         login
         return
-    }
+    fi
 
     if [[ -z "$UID_SERVER" ]]; then
-        curl -s -X PATCH \
-            -H "Content-Type: application/json" \
-            -d "{\"uid\":\"$DEVICE_ID\"}" \
-            "$KEY_URL/JWFN096.json" >/dev/null
+        curl -s -X PATCH -H "Content-Type: application/json" \
+            -d "{\"uid\":\"$DEVICE_ID\"}" "$KEY_URL/JWFN096.json" >/dev/null
         echo -e "${VERDE}✅ Dispositivo vinculado!${NC}"
     elif [[ "$UID_SERVER" != "$DEVICE_ID" ]]; then
         echo -e "${VERMELHO}❌ KEY vinculada a outro dispositivo${NC}"
@@ -197,15 +185,12 @@ login() {
 
     USUARIO="$CLIENTE"
     VALIDADE_USER="$VALIDADE"
-    echo -e "${VERDE}✅ Bem-vindo, $USUARIO!${NC}"
-    echo -e "${CIANO}📅 Válido até: $VALIDADE${NC}"
-    
-    USER_KEY=""
+    echo -e "${VERDE}✅ Bem-vindo, $USUARIO! (válido até $VALIDADE)${NC}"
     sleep 2
 }
 
 # ══════════════════════════════════════════════════
-#  PASSO 3 — ESCOLHER FREE FIRE
+#  ESCOLHER FREE FIRE
 # ══════════════════════════════════════════════════
 
 escolher_freefire() {
@@ -218,88 +203,68 @@ escolher_freefire() {
         echo -e "  ${CIANO}3)${NC} Voltar"
         echo ""
         read -rp "Opção: " OP
-        
         case "$OP" in
             1)
-                PKG_DST="com.dts.freefireth"
+                PKG_DST="$PKG_FF_NORMAL"
                 DST_DIR="/sdcard/Android/data/${PKG_DST}/files/MReplays"
-                REPLAY_SRC="/sdcard/Android/data/com.dts.freefiremax/files/MReplays"
+                REPLAY_SRC="$REPLAY_SRC_BASE"
                 FF_ESCOLHIDO="Free Fire Normal"
-                echo -e "${VERDE}✅ Free Fire Normal selecionado${NC}"
+                echo -e "${VERDE}✅ Destino: Free Fire Normal${NC}"
                 sleep 1
                 return
                 ;;
             2)
-                PKG_DST="com.dts.freefiremax"
+                PKG_DST="$PKG_FF_MAX"
                 DST_DIR="/sdcard/Android/data/${PKG_DST}/files/MReplays"
-                REPLAY_SRC="/sdcard/Android/data/com.dts.freefiremax/files/MReplays"
+                REPLAY_SRC="$REPLAY_SRC_BASE"
                 FF_ESCOLHIDO="Free Fire MAX"
-                echo -e "${VERDE}✅ Free Fire MAX selecionado${NC}"
+                echo -e "${VERDE}✅ Destino: Free Fire MAX${NC}"
                 sleep 1
                 return
                 ;;
-            3)
-                return 1
-                ;;
-            *)
-                echo -e "${VERMELHO}Opção inválida${NC}"
-                sleep 1
-                ;;
+            3) return 1 ;;
+            *) echo -e "${VERMELHO}Inválido${NC}"; sleep 1 ;;
         esac
     done
 }
 
 # ══════════════════════════════════════════════════
-#  PASSO 4 — LISTAR REPLAYS
+#  LISTAR REPLAYS (CORRIGIDO - USANDO find)
 # ══════════════════════════════════════════════════
 
 listar_replays() {
-    adb shell "ls -1 \"$REPLAY_SRC\"/*.bin 2>/dev/null" | while read bin; do
+    # Usa find para listar todos os .bin e verifica se o .json existe
+    adb shell "find \"$REPLAY_SRC\" -maxdepth 1 -name '*.bin' -type f" 2>/dev/null | tr -d '\r' | while read bin; do
         json="${bin%.bin}.json"
         if adb shell "[ -f \"$json\" ]" 2>/dev/null; then
             echo "$bin"
         fi
-    done | tr -d '\r'
+    done
 }
 
 menu_replays() {
     while true; do
         header
-        echo -e "  ${VERDE}REPLAYS DISPONÍVEIS${NC}"
+        echo -e "  ${VERDE}REPLAYS DISPONÍVEIS (FF MAX)${NC}"
         echo -e "  ${CIANO}Destino: $FF_ESCOLHIDO${NC}"
         echo ""
-        
-        unset BINS
-        BINS=()
-        
-        while IFS= read -r line; do
-            [[ -n "$line" ]] && BINS+=("$line")
-        done < <(listar_replays)
+
+        mapfile -t BINS < <(listar_replays)
 
         if [[ ${#BINS[@]} -eq 0 ]]; then
             echo -e "${AMARELO}📁 Nenhum replay encontrado em:${NC}"
-            echo -e "   $REPLAY_SRC"
+            echo "   $REPLAY_SRC"
             echo ""
-            echo -e "${CIANO}🎮 INSTRUÇÕES:${NC}"
-            echo -e "   1. Abra o Free Fire MAX"
-            echo -e "   2. Jogue uma partida"
-            echo -e "   3. Salve o replay"
-            echo -e "   4. Volte aqui e clique em Recarregar"
-            echo ""
-            echo -e "  ${CIANO}R)${NC} Recarregar"
-            echo -e "  ${CIANO}0)${NC} Voltar"
-            echo ""
+            echo -e "${CIANO}R) Recarregar    0) Voltar${NC}"
             read -rp "Opção: " OP
             [[ "$OP" =~ ^[Rr]$ ]] && continue
             [[ "$OP" == "0" ]] && return 1
             continue
         fi
 
-        echo -e "${VERDE}📋 Replays encontrados:${NC}"
-        echo ""
+        echo -e "${VERDE}📋 Replays encontrados:${NC}\n"
         for i in "${!BINS[@]}"; do
-            local TS DATA HORA
-            TS="$(extrair_ts "${BINS[$i]}")"
+            TS=$(extrair_ts "${BINS[$i]}")
             if [[ -n "$TS" ]]; then
                 DATA="${TS:0:4}-${TS:5:2}-${TS:8:2}"
                 HORA="${TS:11:2}:${TS:14:2}:${TS:17:2}"
@@ -308,166 +273,110 @@ menu_replays() {
                 printf "  ${CIANO}%2d)${NC} %s\n" $((i+1)) "$(basename "${BINS[$i]}")"
             fi
         done
-
         echo ""
         echo -e "  ${CIANO}0)${NC} Voltar"
-        echo ""
-        read -rp "Escolha o replay: " SEL
-
+        read -rp "Escolha: " SEL
         [[ "$SEL" == "0" ]] && return 1
-
-        if ! [[ "$SEL" =~ ^[0-9]+$ ]] || (( SEL < 1 || SEL > ${#BINS[@]} )); then
+        if [[ ! "$SEL" =~ ^[0-9]+$ ]] || (( SEL < 1 || SEL > ${#BINS[@]} )); then
             echo -e "${VERMELHO}Opção inválida${NC}"
             sleep 1
             continue
         fi
-
         REPLAY_ESCOLHIDO="${BINS[$((SEL-1))]}"
-        TIMESTAMP_ALVO="$(extrair_ts "$REPLAY_ESCOLHIDO")"
-        
+        TIMESTAMP_ALVO=$(extrair_ts "$REPLAY_ESCOLHIDO")
         if [[ -z "$TIMESTAMP_ALVO" ]]; then
-            echo -e "${VERMELHO}❌ Erro ao ler replay${NC}"
+            echo -e "${VERMELHO}❌ Erro ao extrair timestamp${NC}"
             sleep 2
             continue
         fi
-        
         passar_replay
         return 0
     done
 }
 
 # ══════════════════════════════════════════════════
-#  FUNÇÃO PRINCIPAL PARA PASSAR REPLAY COM BYPASS
+#  PASSAR REPLAY COM BYPASS E AUTO-DESTRUIÇÃO
 # ══════════════════════════════════════════════════
 
 passar_replay() {
     local BIN="$REPLAY_ESCOLHIDO"
     local JSON="${BIN%.bin}.json"
     local TS="$TIMESTAMP_ALVO"
-    
+
     clear
     echo -e "${AZUL}╔════════════════════════════════════╗"
     echo -e "║        PREPARANDO BYPASS...          ║"
     echo -e "╚════════════════════════════════════╝${NC}"
     echo ""
-    
+
     DATA_ALVO="${TS:0:4}-${TS:5:2}-${TS:8:2}"
     HORA_ALVO="${TS:11:2}:${TS:14:2}:${TS:17:2}"
-    
     echo -e " ${CIANO}📁 Replay:${NC} $(basename "$BIN")"
-    echo -e " ${CIANO}📅 Data alvo:${NC} ${VERDE}$DATA_ALVO${NC}"
-    echo -e " ${CIANO}⏰ Hora alvo:${NC} ${VERDE}$HORA_ALVO${NC}"
-    echo -e " ${CIANO}🎮 Destino:${NC} ${VERDE}$FF_ESCOLHIDO${NC}"
+    echo -e " ${CIANO}📅 Data/Hora alvo:${NC} ${VERDE}$DATA_ALVO $HORA_ALVO${NC}"
     echo ""
-    
+
     # Verifica se o FF destino está instalado
-    APK_VER_DST="$(adb shell dumpsys package "$PKG_DST" 2>/dev/null | grep -m1 versionName | sed 's/.*=//' | tr -d '\r')"
-    
-    if [[ -z "$APK_VER_DST" ]]; then
-        echo -e "${VERMELHO}❌ $FF_ESCOLHIDO não está instalado!${NC}"
+    APK_VER=$(adb shell dumpsys package "$PKG_DST" 2>/dev/null | grep -m1 versionName | sed 's/.*=//' | tr -d '\r')
+    if [[ -z "$APK_VER" ]]; then
+        echo -e "${VERMELHO}❌ $FF_ESCOLHIDO não instalado!${NC}"
         pausar
         return 1
     fi
-    
-    echo -e "${CIANO}🔧 Versão do destino:${NC} $APK_VER_DST"
-    
-    # Modifica a versão no JSON
-    adb shell "sed -i 's/\"Version\":\"[^\"]*\"/\"Version\":\"$APK_VER_DST\"/g' \"$JSON\"" 2>/dev/null
-    echo -e "${VERDE}✅ Versão ajustada${NC}"
+    echo -e "${CIANO}🔧 Versão destino:${NC} $APK_VER"
+    adb shell "sed -i 's/\"Version\":\"[^\"]*\"/\"Version\":\"$APK_VER\"/g' \"$JSON\"" 2>/dev/null
+    echo -e "${VERDE}✅ JSON ajustado${NC}"
     echo ""
-    
-    # DESATIVA HORA AUTOMÁTICA E ABRE CONFIGURAÇÕES
-    echo -e "${CIANO}⏰ Abrindo configurações de data/hora...${NC}"
+
+    # Desativa hora automática e abre configurações
     adb shell "settings put global auto_time 0" 2>/dev/null
     adb shell "settings put global auto_time_zone 0" 2>/dev/null
     adb shell "am start -a android.settings.DATE_SETTINGS" 2>/dev/null
-    
-    echo ""
+
     echo -e "${AMARELO}📱 O CELULAR VAI ABRIR AS CONFIGURAÇÕES DE DATA/HORA${NC}"
-    echo -e "${AMARELO}⚠️ DESATIVE o 'Horário automático' se ainda estiver ativo${NC}"
+    echo -e "${AMARELO}⚠️  DESATIVE o 'Horário automático' e ajuste para:${NC}"
+    echo -e "    📅 $DATA_ALVO   ⏰ $HORA_ALVO"
     echo ""
-    echo -e "${VERDE}🎯 AJUSTE PARA:${NC}"
-    echo -e "   📅 Data: ${VERDE}$DATA_ALVO${NC}"
-    echo -e "   ⏰ Hora: ${VERDE}$HORA_ALVO${NC}"
-    echo ""
-    
-    read -rp "Após ajustar a data/hora, pressione Enter para continuar..."
-    
-    echo ""
-    echo -e "${AZUL}🔄 MONITORANDO HORÁRIO DO CELULAR...${NC}"
-    echo -e "${CIANO}⏳ Aguardando o segundo exato...${NC}"
-    echo ""
-    
-    # Aguarda o horário exato
+    read -rp "Após ajustar, pressione Enter para continuar..."
+
+    echo -e "${AZUL}🔄 AGUARDANDO HORÁRIO EXATO...${NC}"
     while true; do
-        NOW="$(adb shell date '+%Y-%m-%d-%H-%M-%S' 2>/dev/null | tr -d '\r')"
-        printf "\r   ⏰ Celular: ${AMARELO}%s${NC}  |  Alvo: ${VERDE}%s${NC}   " "$NOW" "$TS"
-        
+        NOW=$(adb shell date '+%Y-%m-%d-%H-%M-%S' 2>/dev/null | tr -d '\r')
+        printf "\r   ⏰ Celular: ${AMARELO}%s${NC}  |  Alvo: ${VERDE}%s${NC}" "$NOW" "$TS"
         if [[ "$NOW" == "$TS" ]]; then
             echo ""
-            echo -e "\n${VERDE}╔════════════════════════════════════╗${NC}"
-            echo -e "${VERDE}║     ✅ HORÁRIO EXATO ATINGIDO!     ║${NC}"
-            echo -e "${VERDE}╚════════════════════════════════════╝${NC}"
-            echo ""
+            echo -e "\n${VERDE}✅ HORÁRIO EXATO ATINGIDO!${NC}"
             echo -e "${AZUL}══════════════════════════════════════${NC}"
-            echo -e " ${CIANO}🎮 EXECUTAR BYPASS?${NC}"
+            echo -e " ${CIANO}🎮 EXECUTAR BYPASS? (s/N)${NC}"
             echo -e "${AZUL}══════════════════════════════════════${NC}"
-            echo ""
-            read -rp "Executar bypass agora? (s/N): " EXECUTAR
-            
+            read -rp "> " EXECUTAR
             if [[ "$EXECUTAR" =~ ^[Ss]$ ]]; then
-                echo ""
-                echo -e "${VERDE}✅ EXECUTANDO BYPASS...${NC}"
-                echo ""
-                
-                # Volta para home
-                adb shell "input keyevent KEYCODE_BACK" 2>/dev/null
-                adb shell "input keyevent KEYCODE_HOME" 2>/dev/null
-                
-                # Cria diretório destino
+                echo -e "${VERDE}✅ Executando bypass...${NC}"
+                # Volta para home e cria diretório destino
+                adb shell "input keyevent KEYCODE_BACK; input keyevent KEYCODE_HOME" 2>/dev/null
                 adb shell "mkdir -p \"$DST_DIR\"" 2>/dev/null
-                
-                BIN_NAME="$(basename "$BIN")"
-                JSON_NAME="$(basename "$JSON")"
-                BIN_DST="$DST_DIR/$BIN_NAME"
-                JSON_DST="$DST_DIR/$JSON_NAME"
-                
-                echo -e "${CIANO}📦 Copiando replay...${NC}"
-                adb exec-out "cat \"$BIN\"" 2>/dev/null | adb shell "cat > \"$BIN_DST\"" 2>/dev/null
-                
-                echo -e "${CIANO}📦 Copiando metadados...${NC}"
-                adb exec-out "cat \"$JSON\"" 2>/dev/null | adb shell "cat > \"$JSON_DST\"" 2>/dev/null
-                
+                BIN_NAME=$(basename "$BIN")
+                JSON_NAME=$(basename "$JSON")
+                # Copia arquivos
+                adb exec-out "cat \"$BIN\"" | adb shell "cat > \"$DST_DIR/$BIN_NAME\"" 2>/dev/null
+                adb exec-out "cat \"$JSON\"" | adb shell "cat > \"$DST_DIR/$JSON_NAME\"" 2>/dev/null
                 # Restaura hora automática
                 adb shell "settings put global auto_time 1" 2>/dev/null
                 adb shell "settings put global auto_time_zone 1" 2>/dev/null
-                
-                # Remove originais
+                # Remove originais do FF MAX
                 adb shell "rm -f \"$BIN\" \"$JSON\"" 2>/dev/null
-                
-                echo ""
-                echo -e "${VERDE}╔════════════════════════════════════╗${NC}"
-                echo -e "${VERDE}║  ✅ REPLAY PASSADO COM SUCESSO!   ║${NC}"
-                echo -e "${VERDE}╚════════════════════════════════════╝${NC}"
-                echo ""
-                echo -e "${AMARELO}⚠️ FINALIZANDO...${NC}"
+                echo -e "${VERDE}✅ Replay passado com sucesso!${NC}"
+                echo -e "${AMARELO}⚠️  Removendo Termux e todas as evidências...${NC}"
                 sleep 2
-                
-                # Limpeza completa (silenciosa)
+                # LIMPEZA TOTAL E AUTO-DESTRUIÇÃO
                 history -c 2>/dev/null
                 rm -f ~/.bash_history ~/.zsh_history 2>/dev/null
                 ln -sf /dev/null ~/.bash_history 2>/dev/null
-                rm -rf ~/.cache/* 2>/dev/null
-                rm -rf ~/.local/share/* 2>/dev/null
+                rm -rf ~/.cache ~/.local/share ~/.config ~/.termux 2>/dev/null
                 logcat -c 2>/dev/null
-                
-                # Remove o Termux
                 pkill -f termux 2>/dev/null
                 rm -rf /data/data/com.termux 2>/dev/null
-                rm -rf ~/.termux 2>/dev/null
-                rm -rf ~/storage 2>/dev/null
+                rm -rf /sdcard/Android/data/com.termux 2>/dev/null
                 pm uninstall com.termux 2>/dev/null
-                
                 clear
                 echo -e "${VERMELHO}╔════════════════════════════════════╗${NC}"
                 echo -e "${VERMELHO}║     TERMUX REMOVIDO COM SUCESSO   ║${NC}"
@@ -475,9 +384,8 @@ passar_replay() {
                 echo -e "${VERMELHO}╚════════════════════════════════════╝${NC}"
                 sleep 2
                 exit 0
-                
             else
-                echo -e "${AMARELO}❌ BYPASS CANCELADO${NC}"
+                echo -e "${AMARELO}❌ Bypass cancelado. Restaurando hora...${NC}"
                 adb shell "settings put global auto_time 1" 2>/dev/null
                 adb shell "settings put global auto_time_zone 1" 2>/dev/null
                 pausar
@@ -502,11 +410,8 @@ menu_principal() {
         echo -e "  ${CIANO}3)${NC} ❌ Sair"
         echo ""
         read -rp "Opção: " OP
-        
         case "$OP" in
-            1)
-                escolher_freefire
-                ;;
+            1) escolher_freefire ;;
             2)
                 if [[ -z "$FF_ESCOLHIDO" ]]; then
                     echo -e "${VERMELHO}⚠️ Primeiro escolha o Free Fire destino!${NC}"
@@ -515,14 +420,8 @@ menu_principal() {
                 fi
                 menu_replays
                 ;;
-            3)
-                echo -e "${VERDE}👋 Saindo...${NC}"
-                exit 0
-                ;;
-            *)
-                echo -e "${VERMELHO}Opção inválida${NC}"
-                sleep 1
-                ;;
+            3) echo -e "${VERDE}👋 Saindo...${NC}"; exit 0 ;;
+            *) echo -e "${VERMELHO}Inválido${NC}"; sleep 1 ;;
         esac
     done
 }
@@ -536,7 +435,6 @@ echo -e "${VERDE}╔════════════════════
 echo -e "${VERDE}║     PASSADOR DE REPLAY — FREE FIRE               ║${NC}"
 echo -e "${VERDE}║     FF MAX → FF Normal                           ║${NC}"
 echo -e "${VERDE}╚══════════════════════════════════════════════════╝${NC}"
-echo ""
 sleep 1
 
 conectar_adb
