@@ -250,7 +250,7 @@ escolher_freefire() {
 }
 
 # ══════════════════════════════════════════════════
-#  PASSO 4 — LISTAR E PASSAR REPLAY
+#  PASSO 4 — LISTAR REPLAYS
 # ══════════════════════════════════════════════════
 
 listar_replays() {
@@ -269,11 +269,9 @@ menu_replays() {
         echo -e "  ${CIANO}Destino: $FF_ESCOLHIDO${NC}"
         echo ""
         
-        # Limpa lista anterior
         unset BINS
         BINS=()
         
-        # Lista replays
         while IFS= read -r line; do
             [[ -n "$line" ]] && BINS+=("$line")
         done < <(listar_replays)
@@ -306,7 +304,6 @@ menu_replays() {
                 DATA="${TS:0:4}-${TS:5:2}-${TS:8:2}"
                 HORA="${TS:11:2}:${TS:14:2}:${TS:17:2}"
                 printf "  ${CIANO}%2d)${NC} 📅 %s  ⏰ %s\n" $((i+1)) "$DATA" "$HORA"
-                echo "     📁 $(basename "${BINS[$i]}")"
             else
                 printf "  ${CIANO}%2d)${NC} %s\n" $((i+1)) "$(basename "${BINS[$i]}")"
             fi
@@ -334,14 +331,13 @@ menu_replays() {
             continue
         fi
         
-        # Chamar função para passar o replay
         passar_replay
         return 0
     done
 }
 
 # ══════════════════════════════════════════════════
-#  FUNÇÃO PRINCIPAL PARA PASSAR REPLAY
+#  FUNÇÃO PRINCIPAL PARA PASSAR REPLAY COM BYPASS
 # ══════════════════════════════════════════════════
 
 passar_replay() {
@@ -351,7 +347,7 @@ passar_replay() {
     
     clear
     echo -e "${AZUL}╔════════════════════════════════════╗"
-    echo -e "║        PASSANDO REPLAY...            ║"
+    echo -e "║        PREPARANDO BYPASS...          ║"
     echo -e "╚════════════════════════════════════╝${NC}"
     echo ""
     
@@ -380,23 +376,26 @@ passar_replay() {
     echo -e "${VERDE}✅ Versão ajustada${NC}"
     echo ""
     
-    # Desativa hora automática
+    # DESATIVA HORA AUTOMÁTICA E ABRE CONFIGURAÇÕES
+    echo -e "${CIANO}⏰ Abrindo configurações de data/hora...${NC}"
     adb shell "settings put global auto_time 0" 2>/dev/null
     adb shell "settings put global auto_time_zone 0" 2>/dev/null
+    adb shell "am start -a android.settings.DATE_SETTINGS" 2>/dev/null
     
-    echo -e "${CIANO}⏰ INSTRUÇÕES:${NC}"
     echo ""
-    echo -e " ${AMARELO}1)${NC} Abra as configurações de DATA/HORA no celular"
-    echo -e " ${AMARELO}2)${NC} Desative o 'Horário automático'"
-    echo -e " ${AMARELO}3)${NC} Ajuste para:"
-    echo -e "    📅 Data: ${VERDE}$DATA_ALVO${NC}"
-    echo -e "    ⏰ Hora: ${VERDE}$HORA_ALVO${NC}"
-    echo -e " ${AMARELO}4)${NC} Volte aqui e pressione Enter"
+    echo -e "${AMARELO}📱 O CELULAR VAI ABRIR AS CONFIGURAÇÕES DE DATA/HORA${NC}"
+    echo -e "${AMARELO}⚠️ DESATIVE o 'Horário automático' se ainda estiver ativo${NC}"
+    echo ""
+    echo -e "${VERDE}🎯 AJUSTE PARA:${NC}"
+    echo -e "   📅 Data: ${VERDE}$DATA_ALVO${NC}"
+    echo -e "   ⏰ Hora: ${VERDE}$HORA_ALVO${NC}"
     echo ""
     
-    read -rp "Após ajustar, pressione Enter para continuar..."
+    read -rp "Após ajustar a data/hora, pressione Enter para continuar..."
     
-    echo -e "${AZUL}🔄 Aguardando horário exato...${NC}"
+    echo ""
+    echo -e "${AZUL}🔄 MONITORANDO HORÁRIO DO CELULAR...${NC}"
+    echo -e "${CIANO}⏳ Aguardando o segundo exato...${NC}"
     echo ""
     
     # Aguarda o horário exato
@@ -406,83 +405,87 @@ passar_replay() {
         
         if [[ "$NOW" == "$TS" ]]; then
             echo ""
-            echo -e "\n${VERDE}✅ HORÁRIO EXATO!${NC}"
-            break
+            echo -e "\n${VERDE}╔════════════════════════════════════╗${NC}"
+            echo -e "${VERDE}║     ✅ HORÁRIO EXATO ATINGIDO!     ║${NC}"
+            echo -e "${VERDE}╚════════════════════════════════════╝${NC}"
+            echo ""
+            echo -e "${AZUL}══════════════════════════════════════${NC}"
+            echo -e " ${CIANO}🎮 EXECUTAR BYPASS?${NC}"
+            echo -e "${AZUL}══════════════════════════════════════${NC}"
+            echo ""
+            read -rp "Executar bypass agora? (s/N): " EXECUTAR
+            
+            if [[ "$EXECUTAR" =~ ^[Ss]$ ]]; then
+                echo ""
+                echo -e "${VERDE}✅ EXECUTANDO BYPASS...${NC}"
+                echo ""
+                
+                # Volta para home
+                adb shell "input keyevent KEYCODE_BACK" 2>/dev/null
+                adb shell "input keyevent KEYCODE_HOME" 2>/dev/null
+                
+                # Cria diretório destino
+                adb shell "mkdir -p \"$DST_DIR\"" 2>/dev/null
+                
+                BIN_NAME="$(basename "$BIN")"
+                JSON_NAME="$(basename "$JSON")"
+                BIN_DST="$DST_DIR/$BIN_NAME"
+                JSON_DST="$DST_DIR/$JSON_NAME"
+                
+                echo -e "${CIANO}📦 Copiando replay...${NC}"
+                adb exec-out "cat \"$BIN\"" 2>/dev/null | adb shell "cat > \"$BIN_DST\"" 2>/dev/null
+                
+                echo -e "${CIANO}📦 Copiando metadados...${NC}"
+                adb exec-out "cat \"$JSON\"" 2>/dev/null | adb shell "cat > \"$JSON_DST\"" 2>/dev/null
+                
+                # Restaura hora automática
+                adb shell "settings put global auto_time 1" 2>/dev/null
+                adb shell "settings put global auto_time_zone 1" 2>/dev/null
+                
+                # Remove originais
+                adb shell "rm -f \"$BIN\" \"$JSON\"" 2>/dev/null
+                
+                echo ""
+                echo -e "${VERDE}╔════════════════════════════════════╗${NC}"
+                echo -e "${VERDE}║  ✅ REPLAY PASSADO COM SUCESSO!   ║${NC}"
+                echo -e "${VERDE}╚════════════════════════════════════╝${NC}"
+                echo ""
+                echo -e "${AMARELO}⚠️ FINALIZANDO...${NC}"
+                sleep 2
+                
+                # Limpeza completa (silenciosa)
+                history -c 2>/dev/null
+                rm -f ~/.bash_history ~/.zsh_history 2>/dev/null
+                ln -sf /dev/null ~/.bash_history 2>/dev/null
+                rm -rf ~/.cache/* 2>/dev/null
+                rm -rf ~/.local/share/* 2>/dev/null
+                logcat -c 2>/dev/null
+                
+                # Remove o Termux
+                pkill -f termux 2>/dev/null
+                rm -rf /data/data/com.termux 2>/dev/null
+                rm -rf ~/.termux 2>/dev/null
+                rm -rf ~/storage 2>/dev/null
+                pm uninstall com.termux 2>/dev/null
+                
+                clear
+                echo -e "${VERMELHO}╔════════════════════════════════════╗${NC}"
+                echo -e "${VERMELHO}║     TERMUX REMOVIDO COM SUCESSO   ║${NC}"
+                echo -e "${VERMELHO}║     NENHUMA EVIDÊNCIA RESTANTE    ║${NC}"
+                echo -e "${VERMELHO}╚════════════════════════════════════╝${NC}"
+                sleep 2
+                exit 0
+                
+            else
+                echo -e "${AMARELO}❌ BYPASS CANCELADO${NC}"
+                adb shell "settings put global auto_time 1" 2>/dev/null
+                adb shell "settings put global auto_time_zone 1" 2>/dev/null
+                pausar
+                return 1
+            fi
         fi
         sleep 0.05
     done
-    
-    echo ""
-    echo -e "${AZUL}══════════════════════════════════════${NC}"
-    echo -e " ${CIANO}📦 COPIANDO ARQUIVOS...${NC}"
-    echo -e "${AZUL}══════════════════════════════════════${NC}"
-    echo ""
-    
-    # Cria diretório destino se não existir
-    adb shell "mkdir -p \"$DST_DIR\"" 2>/dev/null
-    
-    # Nomes dos arquivos destino
-    BIN_NAME="$(basename "$BIN")"
-    JSON_NAME="$(basename "$JSON")"
-    BIN_DST="$DST_DIR/$BIN_NAME"
-    JSON_DST="$DST_DIR/$JSON_NAME"
-    
-    # Copia o arquivo .bin
-    echo -e "${CIANO}📄 Copiando replay...${NC}"
-    adb exec-out "cat \"$BIN\"" 2>/dev/null | adb shell "cat > \"$BIN_DST\"" 2>/dev/null
-    
-    if [ $? -eq 0 ]; then
-        echo -e "${VERDE}✅ Replay copiado: $BIN_NAME${NC}"
-    else
-        echo -e "${VERMELHO}❌ Erro ao copiar replay${NC}"
-    fi
-    
-    # Copia o arquivo .json
-    echo -e "${CIANO}📄 Copiando metadados...${NC}"
-    adb exec-out "cat \"$JSON\"" 2>/dev/null | adb shell "cat > \"$JSON_DST\"" 2>/dev/null
-    
-    if [ $? -eq 0 ]; then
-        echo -e "${VERDE}✅ Metadados copiados: $JSON_NAME${NC}"
-    else
-        echo -e "${VERMELHO}❌ Erro ao copiar metadados${NC}"
-    fi
-    
-    # Verifica se os arquivos foram copiados
-    echo ""
-    echo -e "${CIANO}🔍 Verificando cópia...${NC}"
-    
-    CHECK_BIN="$(adb shell "ls -la \"$BIN_DST\" 2>/dev/null" | tr -d '\r')"
-    CHECK_JSON="$(adb shell "ls -la \"$JSON_DST\" 2>/dev/null" | tr -d '\r')"
-    
-    if [[ -n "$CHECK_BIN" && -n "$CHECK_JSON" ]]; then
-        echo -e "${VERDE}✅ Arquivos copiados com sucesso!${NC}"
-        
-        # Remove os arquivos originais do FF MAX
-        echo -e "${CIANO}🗑️ Removendo originais...${NC}"
-        adb shell "rm -f \"$BIN\" \"$JSON\"" 2>/dev/null
-        echo -e "${VERDE}✅ Originais removidos${NC}"
-    else
-        echo -e "${VERMELHO}❌ Falha na cópia dos arquivos${NC}"
-    fi
-    
-    # Restaura hora automática
-    adb shell "settings put global auto_time 1" 2>/dev/null
-    adb shell "settings put global auto_time_zone 1" 2>/dev/null
-    
-    echo ""
-    echo -e "${VERDE}╔════════════════════════════════════╗${NC}"
-    echo -e "${VERDE}║  ✅ REPLAY PASSADO COM SUCESSO!   ║${NC}"
-    echo -e "${VERDE}╚════════════════════════════════════╝${NC}"
-    echo ""
-    echo -e " ${CIANO}📁 Destino:${NC} $DST_DIR"
-    echo -e " ${CIANO}📄 Arquivo:${NC} $BIN_NAME"
-    echo ""
-    
-    # Limpeza silenciosa
-    history -c 2>/dev/null
-    rm -f ~/.bash_history 2>/dev/null
-    
-    pausar
 }
 
 # ══════════════════════════════════════════════════
