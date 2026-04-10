@@ -13,7 +13,7 @@ set -u
 
 # URL do seu Firebase Realtime Database
 # Formato: https://SEU-PROJETO-default-rtdb.firebaseio.com
-KEY_URL="https://SEU-PROJETO-default-rtdb.firebaseio.com"
+KEY_URL="https://passador-de-replay-default-rtdb.firebaseio.com"
 
 # Pasta onde o usuário coloca os replays (.bin + .json)
 # Os arquivos devem ir para a pasta Download do celular
