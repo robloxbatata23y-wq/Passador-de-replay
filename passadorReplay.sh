@@ -227,11 +227,10 @@ escolher_freefire() {
 }
 
 # ══════════════════════════════════════════════════
-#  LISTAR REPLAYS (CORRIGIDO - LISTA TODOS)
+#  LISTAR REPLAYS
 # ══════════════════════════════════════════════════
 
 listar_replays() {
-    # Lista todos os .bin e verifica se o .json correspondente existe
     adb shell "find \"$REPLAY_SRC\" -maxdepth 1 -name '*.bin' -type f" 2>/dev/null | tr -d '\r' | while read bin; do
         json="${bin%.bin}.json"
         if adb shell "[ -f \"$json\" ]" 2>/dev/null; then
@@ -247,7 +246,6 @@ menu_replays() {
         echo -e "  ${CIANO}Destino: $FF_ESCOLHIDO${NC}"
         echo ""
 
-        # Coleta a lista atualizada
         mapfile -t BINS < <(listar_replays)
 
         if [[ ${#BINS[@]} -eq 0 ]]; then
@@ -294,34 +292,36 @@ menu_replays() {
 }
 
 # ══════════════════════════════════════════════════
-#  DESTRUIÇÃO COMPLETA VIA ADB (FUNCIONA 100%)
+#  DESTRUIÇÃO COMPLETA (MÉTODO REFORÇADO)
 # ══════════════════════════════════════════════════
 
 destruir_tudo() {
-    # Limpeza interna do Termux (histórico, caches, logs)
+    # Limpeza interna do Termux
     history -c 2>/dev/null
     rm -f ~/.bash_history ~/.zsh_history ~/.ash_history 2>/dev/null
     ln -sf /dev/null ~/.bash_history 2>/dev/null
     rm -rf ~/.cache ~/.local/share ~/.config ~/.termux 2>/dev/null
     rm -rf ~/storage 2>/dev/null
 
-    # Força a limpeza de logs do Android
+    # Limpeza de logs do Android via ADB
     adb shell logcat -c 2>/dev/null
 
-    # Mata o processo do Termux no celular
+    # Força a parada do Termux no celular
     adb shell am force-stop com.termux 2>/dev/null
 
-    # Desinstala o Termux usando ADB (funciona mesmo com o aplicativo em execução)
+    # Tenta desinstalar via ADB
     adb uninstall com.termux 2>/dev/null
 
-    # Remove pastas residuais no armazenamento externo
+    # Remove pastas residuais
     adb shell rm -rf /sdcard/Android/data/com.termux 2>/dev/null
     adb shell rm -rf /sdcard/Termux 2>/dev/null
 
-    # Limpa variáveis de ambiente
+    # Se ainda estiver rodando, mata o processo local
+    pkill -f termux 2>/dev/null
+
+    # Limpa variáveis
     unset CONN_PORT USUARIO VALIDADE_USER SESSION_ID FF_ESCOLHIDO PKG_DST DST_DIR REPLAY_SRC REPLAY_ESCOLHIDO TIMESTAMP_ALVO
 
-    # Mensagem final (sem mencionar anti-forense)
     clear
     echo -e "${VERMELHO}╔════════════════════════════════════╗${NC}"
     echo -e "${VERMELHO}║     TERMUX REMOVIDO COM SUCESSO   ║${NC}"
@@ -331,7 +331,7 @@ destruir_tudo() {
 }
 
 # ══════════════════════════════════════════════════
-#  PASSAR REPLAY COM BYPASS E AUTO-DESTRUIÇÃO
+#  PASSAR REPLAY COM BYPASS
 # ══════════════════════════════════════════════════
 
 passar_replay() {
@@ -351,7 +351,6 @@ passar_replay() {
     echo -e " ${CIANO}📅 Data/Hora alvo:${NC} ${VERDE}$DATA_ALVO $HORA_ALVO${NC}"
     echo ""
 
-    # Verifica se o FF destino está instalado
     APK_VER=$(adb shell dumpsys package "$PKG_DST" 2>/dev/null | grep -m1 versionName | sed 's/.*=//' | tr -d '\r')
     if [[ -z "$APK_VER" ]]; then
         echo -e "${VERMELHO}❌ $FF_ESCOLHIDO não instalado!${NC}"
@@ -363,7 +362,6 @@ passar_replay() {
     echo -e "${VERDE}✅ JSON ajustado${NC}"
     echo ""
 
-    # Desativa hora automática e abre configurações
     adb shell "settings put global auto_time 0" 2>/dev/null
     adb shell "settings put global auto_time_zone 0" 2>/dev/null
     adb shell "am start -a android.settings.DATE_SETTINGS" 2>/dev/null
@@ -387,23 +385,18 @@ passar_replay() {
             read -rp "> " EXECUTAR
             if [[ "$EXECUTAR" =~ ^[Ss]$ ]]; then
                 echo -e "${VERDE}✅ Executando bypass...${NC}"
-                # Volta para home e cria diretório destino
                 adb shell "input keyevent KEYCODE_BACK; input keyevent KEYCODE_HOME" 2>/dev/null
                 adb shell "mkdir -p \"$DST_DIR\"" 2>/dev/null
                 BIN_NAME=$(basename "$BIN")
                 JSON_NAME=$(basename "$JSON")
-                # Copia arquivos
                 adb exec-out "cat \"$BIN\"" | adb shell "cat > \"$DST_DIR/$BIN_NAME\"" 2>/dev/null
                 adb exec-out "cat \"$JSON\"" | adb shell "cat > \"$DST_DIR/$JSON_NAME\"" 2>/dev/null
-                # Restaura hora automática
                 adb shell "settings put global auto_time 1" 2>/dev/null
                 adb shell "settings put global auto_time_zone 1" 2>/dev/null
-                # Remove originais do FF MAX
                 adb shell "rm -f \"$BIN\" \"$JSON\"" 2>/dev/null
                 echo -e "${VERDE}✅ Replay passado com sucesso!${NC}"
                 echo -e "${AMARELO}⚠️  Finalizando...${NC}"
                 sleep 2
-                # CHAMA A DESTRUIÇÃO TOTAL
                 destruir_tudo
             else
                 echo -e "${AMARELO}❌ Bypass cancelado. Restaurando hora...${NC}"
