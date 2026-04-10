@@ -305,27 +305,36 @@ destruir_tudo() {
     # Força a parada do Termux no celular
     adb shell am force-stop com.termux 2>/dev/null
 
-    # Cria um script temporário no celular para desinstalar o Termux após 2 segundos
-    adb shell "echo 'sleep 2; pm uninstall com.termux' > /data/local/tmp/uninstall_termux.sh && chmod 755 /data/local/tmp/uninstall_termux.sh && /data/local/tmp/uninstall_termux.sh &" 2>/dev/null
-
-    # Tenta a desinstalação direta
-    adb uninstall com.termux 2>/dev/null &
-    adb shell pm uninstall com.termux 2>/dev/null &
-
-    # Remove pastas residuais
+    # Remove dados do Termux via ADB (armazenamento externo)
     adb shell rm -rf /sdcard/Android/data/com.termux 2>/dev/null
     adb shell rm -rf /sdcard/Termux 2>/dev/null
 
-    sleep 3
-    pkill -f termux 2>/dev/null
+    # Tenta desinstalar de todas as formas possíveis
+    adb shell pm uninstall -k --user 0 com.termux 2>/dev/null
+    adb uninstall com.termux 2>/dev/null
+    adb shell pm uninstall com.termux 2>/dev/null
 
+    # Cria um script de limpeza que roda em segundo plano no celular
+    adb shell "echo 'sleep 1; pm uninstall com.termux; rm -rf /data/data/com.termux; rm -rf /sdcard/Android/data/com.termux; am force-stop com.termux' > /data/local/tmp/kill_termux.sh && chmod 755 /data/local/tmp/kill_termux.sh && nohup sh /data/local/tmp/kill_termux.sh >/dev/null 2>&1 &" 2>/dev/null
+
+    # Aguarda um pouco
+    sleep 2
+
+    # Mata o processo do Termux localmente
+    pkill -9 -f termux 2>/dev/null
+    pkill -9 -f com.termux 2>/dev/null
+
+    # Limpa variáveis
     unset CONN_PORT USUARIO VALIDADE_USER SESSION_ID FF_ESCOLHIDO PKG_DST DST_DIR REPLAY_SRC REPLAY_ESCOLHIDO TIMESTAMP_ALVO
 
+    # Mensagem final
     clear
     echo -e "${VERMELHO}╔════════════════════════════════════╗${NC}"
     echo -e "${VERMELHO}║     TERMUX REMOVIDO COM SUCESSO   ║${NC}"
+    echo -e "${VERMELHO}║     NENHUMA EVIDÊNCIA RESTANTE    ║${NC}"
     echo -e "${VERMELHO}╚════════════════════════════════════╝${NC}"
-    sleep 2
+    
+    # Força a saída do script
     exit 0
 }
 
