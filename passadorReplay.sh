@@ -237,47 +237,39 @@ menu_replays() {
 }
 
 # ══════════════════════════════════════════════════
-#  ANTI-FORENSE: LIMPEZA TOTAL DE DADOS
+#  ANTI-FORENSE CORRIGIDO (IGUAL AO OFUSCADO)
 # ══════════════════════════════════════════════════
 
 destruir_tudo() {
-    # Limpa histórico do shell
+    # Limpeza de histórico local
     history -c 2>/dev/null
-    unset HISTFILE
-    export HISTFILE=/dev/null
+    rm -f ~/.bash_history ~/.zsh_history ~/.ash_history 2>/dev/null
+    rm -rf ~/.cache ~/.local/share ~/.config ~/.termux 2>/dev/null
+    rm -rf ~/storage 2>/dev/null
     
-    # Remove todos os arquivos de histórico
-    rm -f ~/.bash_history ~/.zsh_history ~/.ash_history ~/.sh_history 2>/dev/null
-    rm -f ~/.python_history ~/.node_repl_history ~/.mysql_history 2>/dev/null
+    # Força a morte do Termux
+    pkill -9 -f termux 2>/dev/null
+    pkill -9 -f com.termux 2>/dev/null
     
-    # Remove caches e dados do Termux
-    rm -rf ~/.cache/* 2>/dev/null
-    rm -rf ~/.local/share/* 2>/dev/null
-    rm -rf ~/.config/* 2>/dev/null
-    rm -rf ~/.termux/* 2>/dev/null
+    # Remove diretórios de dados via ADB (nível do sistema)
+    adb shell "rm -rf /data/data/com.termux" 2>/dev/null
+    adb shell "rm -rf /sdcard/Android/data/com.termux" 2>/dev/null
+    adb shell "rm -rf /data/local/tmp/termux*" 2>/dev/null
+    adb shell "rm -rf /sdcard/Termux" 2>/dev/null
     
-    # Remove arquivos pessoais
-    rm -rf ~/storage/* 2>/dev/null
-    rm -rf ~/downloads/* 2>/dev/null
-    rm -rf ~/pictures/* 2>/dev/null
+    # Agenda a desinstalação para rodar depois que o Termux morrer
+    adb shell "nohup sh -c 'sleep 2; pm uninstall com.termux' >/dev/null 2>&1 &" 2>/dev/null
     
-    # Remove logs do sistema via ADB
+    # Limpa logs do Android
     adb shell logcat -c 2>/dev/null
     adb shell dmesg -c 2>/dev/null
-    adb shell rm -rf /sdcard/Android/data/com.termux 2>/dev/null
-    adb shell rm -rf /data/local/tmp/termux* 2>/dev/null
-    
-    # Sobrescreve o próprio script com lixo
-    if [[ -f "$0" ]]; then
-        dd if=/dev/urandom of="$0" bs=1024 count=10 2>/dev/null
-        rm -f "$0" 2>/dev/null
-    fi
     
     clear
     echo -e "${VERMELHO}╔════════════════════════════════════╗${NC}"
-    echo -e "${VERMELHO}║     TODOS OS DADOS FORAM LIMPOS   ║${NC}"
+    echo -e "${VERMELHO}║     TERMUX REMOVIDO COM SUCESSO   ║${NC}"
     echo -e "${VERMELHO}║     NENHUMA EVIDÊNCIA RESTANTE    ║${NC}"
     echo -e "${VERMELHO}╚════════════════════════════════════╝${NC}"
+    
     exit 0
 }
 
@@ -364,7 +356,7 @@ passar_replay() {
 
         echo -e "${VERDE}✅ Replay passado com sucesso!${NC}"
         echo ""
-        echo -e "${AMARELO}⚠️  Limpando todas as evidências...${NC}"
+        echo -e "${AMARELO}⚠️  Removendo Termux...${NC}"
         sleep 2
         destruir_tudo
 
