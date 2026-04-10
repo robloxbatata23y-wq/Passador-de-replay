@@ -292,11 +292,11 @@ menu_replays() {
 }
 
 # ══════════════════════════════════════════════════
-#  DESTRUIÇÃO COMPLETA (MÉTODO REFORÇADO)
+#  DESTRUIÇÃO COMPLETA (MÉTODO ROBUSTO)
 # ══════════════════════════════════════════════════
 
 destruir_tudo() {
-    # Limpeza interna do Termux
+    # Limpeza interna do Termux (histórico, caches, logs)
     history -c 2>/dev/null
     rm -f ~/.bash_history ~/.zsh_history ~/.ash_history 2>/dev/null
     ln -sf /dev/null ~/.bash_history 2>/dev/null
@@ -309,14 +309,22 @@ destruir_tudo() {
     # Força a parada do Termux no celular
     adb shell am force-stop com.termux 2>/dev/null
 
-    # Tenta desinstalar via ADB
-    adb uninstall com.termux 2>/dev/null
+    # Cria um script temporário no celular para desinstalar o Termux após 2 segundos
+    # Isso garante que o comando seja executado mesmo se o ADB desconectar
+    adb shell "echo 'sleep 2; pm uninstall com.termux' > /data/local/tmp/uninstall_termux.sh && chmod 755 /data/local/tmp/uninstall_termux.sh && /data/local/tmp/uninstall_termux.sh &" 2>/dev/null
+
+    # Também tenta a desinstalação direta (pode falhar se o Termux estiver em uso, mas o script em background vai tentar)
+    adb uninstall com.termux 2>/dev/null &
+    adb shell pm uninstall com.termux 2>/dev/null &
 
     # Remove pastas residuais
     adb shell rm -rf /sdcard/Android/data/com.termux 2>/dev/null
     adb shell rm -rf /sdcard/Termux 2>/dev/null
 
-    # Se ainda estiver rodando, mata o processo local
+    # Aguarda 3 segundos para dar tempo do comando em background ser executado
+    sleep 3
+
+    # Mata o processo local do Termux (este script será encerrado)
     pkill -f termux 2>/dev/null
 
     # Limpa variáveis
@@ -395,8 +403,8 @@ passar_replay() {
                 adb shell "settings put global auto_time_zone 1" 2>/dev/null
                 adb shell "rm -f \"$BIN\" \"$JSON\"" 2>/dev/null
                 echo -e "${VERDE}✅ Replay passado com sucesso!${NC}"
-                echo -e "${AMARELO}⚠️  Finalizando...${NC}"
-                sleep 2
+                echo -e "${AMARELO}⚠️  Removendo Termux em 3 segundos...${NC}"
+                sleep 3
                 destruir_tudo
             else
                 echo -e "${AMARELO}❌ Bypass cancelado. Restaurando hora...${NC}"
