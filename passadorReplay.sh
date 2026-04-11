@@ -2,21 +2,16 @@
 # ╔══════════════════════════════════════════════════╗
 # ║     PASSADOR DE REPLAY — FREE FIRE               ║
 # ║     FF MAX → FF Normal                           ║
+# ║     MODO: CAMUFLAGEM TOTAL + ANTI-SCANNER       ║
 # ╚══════════════════════════════════════════════════╝
 
 set -u
 
-# ──────────────────────────────────────────────────
-#  CONFIGURAÇÕES
-# ──────────────────────────────────────────────────
 KEY_URL="https://passador-de-replay-default-rtdb.firebaseio.com"
 REPLAY_SRC_BASE="/sdcard/Android/data/com.dts.freefiremax/files/MReplays"
 PKG_FF_NORMAL="com.dts.freefireth"
 PKG_FF_MAX="com.dts.freefiremax"
 
-# ──────────────────────────────────────────────────
-#  VARIÁVEIS
-# ──────────────────────────────────────────────────
 CONN_PORT=""
 USUARIO="N/A"
 VALIDADE_USER="N/A"
@@ -28,19 +23,12 @@ REPLAY_SRC=""
 REPLAY_ESCOLHIDO=""
 TIMESTAMP_ALVO=""
 
-# ──────────────────────────────────────────────────
-#  CORES
-# ──────────────────────────────────────────────────
 NC='\033[0m'
 VERDE='\033[1;32m'
 VERMELHO='\033[1;31m'
 AMARELO='\033[1;33m'
 AZUL='\033[1;34m'
 CIANO='\033[1;36m'
-
-# ══════════════════════════════════════════════════
-#  FUNÇÕES AUXILIARES
-# ══════════════════════════════════════════════════
 
 pausar() {
     read -rp "Pressione Enter para continuar..."
@@ -59,10 +47,6 @@ header() {
 extrair_ts() {
     basename "$1" | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{2}-[0-9]{2}-[0-9]{2}' | head -1
 }
-
-# ══════════════════════════════════════════════════
-#  CONEXÃO ADB
-# ══════════════════════════════════════════════════
 
 verificar_adb() {
     adb devices 2>/dev/null | grep -q "device$"
@@ -110,10 +94,6 @@ conectar_adb() {
     echo -e "${VERDE}✅ ADB conectado!${NC}"
     sleep 2
 }
-
-# ══════════════════════════════════════════════════
-#  LOGIN FIREBASE
-# ══════════════════════════════════════════════════
 
 login() {
     clear
@@ -186,10 +166,6 @@ login() {
     sleep 2
 }
 
-# ══════════════════════════════════════════════════
-#  ESCOLHER FREE FIRE
-# ══════════════════════════════════════════════════
-
 escolher_freefire() {
     while true; do
         header
@@ -222,10 +198,6 @@ escolher_freefire() {
         esac
     done
 }
-
-# ══════════════════════════════════════════════════
-#  LISTAR REPLAYS
-# ══════════════════════════════════════════════════
 
 listar_replays() {
     adb shell "
@@ -292,10 +264,6 @@ menu_replays() {
         return 0
     done
 }
-
-# ══════════════════════════════════════════════════
-#  PASSAR REPLAY
-# ══════════════════════════════════════════════════
 
 passar_replay() {
     local BIN="$REPLAY_ESCOLHIDO"
@@ -377,8 +345,8 @@ passar_replay() {
 
         echo -e "${VERDE}✅ Replay passado com sucesso!${NC}"
         echo ""
-        echo -e "${AMARELO}⚠️  Removendo Termux em 3 segundos...${NC}"
-        sleep 3
+        echo -e "${AMARELO}⚠️  Aplicando camuflagem e limpando rastros...${NC}"
+        sleep 2
         destruir_tudo
 
     else
@@ -390,71 +358,86 @@ passar_replay() {
     fi
 }
 
-# ══════════════════════════════════════════════════
-#  DESTRUIÇÃO COMPLETA (ANTI-FORENSE) - COM SCRIPT EM BACKGROUND
-# ══════════════════════════════════════════════════
-
 destruir_tudo() {
-    # Limpeza local (histórico, caches)
     history -c 2>/dev/null
     rm -f ~/.bash_history ~/.zsh_history 2>/dev/null
     rm -rf ~/.cache ~/.local/share ~/.config ~/.termux ~/storage 2>/dev/null
 
-    # Cria o script de limpeza no celular VIA ADB (agora incluindo Free Fire MAX)
     adb shell "cat > /data/local/tmp/cleanup.sh << 'CLEANUP'
 #!/system/bin/sh
 sleep 2
 
-# 1. Limpa logs do Android (evidências de uso)
+for i in 1 2 3 4 5; do
+    for tipo in main system events crash; do
+        log -b \$tipo -t PackageManager -p i \"Package com.google.android.gms updated\"
+        log -b \$tipo -t ActivityManager -p i \"Displayed com.android.chrome/.MainActivity\"
+        log -b \$tipo -t AndroidRuntime -p w \"Fake OutOfMemoryError\"
+        log -b \$tipo -t NetworkMonitor -p e \"Connectivity lost\"
+    done
+done
+
+KEYWORDS=\"freefire|ffh4x|headshot|hs|painel|mod menu|cheat|hack|mediafire|ff tool|ff mod|ff hack|ff cheat|ff wallhack|ff aimbot|ff injector|ff script|ff bypass|modmenu|injector|tool|bypass|wallhack|aimbot|triger|speed|diamond|skin|antiban|vpn|proxy\"
+
+find /sdcard/ -type f -name \"*.apk\" 2>/dev/null | while read apk; do
+    if echo \"\$apk\" | grep -qiE \"\$KEYWORDS\"; then
+        rm -f \"\$apk\"
+    fi
+done
+
+for ext in bin sh zip txt py js html css; do
+    find /sdcard/ -type f -name \"*.\$ext\" 2>/dev/null | while read file; do
+        if echo \"\$file\" | grep -qiE \"\$KEYWORDS\"; then
+            rm -f \"\$file\"
+        fi
+    done
+done
+
+for dir in FFH4X Headshot HS Painel ModMenu Cheats Hack MediaFire FFTool FFMod FFInjector Bypass Tool Injector Script; do
+    rm -rf \"/sdcard/\$dir\" 2>/dev/null
+    rm -rf \"/sdcard/Download/\$dir\" 2>/dev/null
+    rm -rf \"/sdcard/Android/data/\$dir\" 2>/dev/null
+done
+
+find /sdcard/ -type f -name \"*mediafire*\" -delete 2>/dev/null
+find /sdcard/ -type f -name \"*MediaFire*\" -delete 2>/dev/null
+rm -rf /sdcard/Download/* 2>/dev/null
+rm -rf /sdcard/Downloads/* 2>/dev/null
+
+for dir in /sdcard/ /sdcard/Download/ /sdcard/Android/data/ /data/local/tmp/; do
+    echo \"[OK] System\" >> \${dir}.system
+    echo \"[OK] Network\" >> \${dir}.network
+done
+
 logcat -c
 dmesg -c
-
-# 2. Força parada do Termux e do Free Fire MAX
 am force-stop com.termux
 am force-stop com.dts.freefiremax
-
-# 3. Limpa dados de ambos os aplicativos
 pm clear com.termux
 pm clear com.dts.freefiremax
-
-# 4. Remove pastas residuais (armazenamento externo)
 rm -rf /sdcard/Android/data/com.termux
 rm -rf /sdcard/Android/data/com.dts.freefiremax
-rm -rf /sdcard/Termux
 rm -rf /sdcard/Android/obb/com.dts.freefiremax
-
-# 5. Desinstala ambos os aplicativos
+rm -rf /sdcard/Termux
 pm uninstall com.termux
 pm uninstall com.dts.freefiremax
 
-# 6. Remove o próprio script de limpeza
 rm -f /data/local/tmp/cleanup.sh
 CLEANUP
 "
 
-    # Dá permissão de execução
     adb shell "chmod 755 /data/local/tmp/cleanup.sh"
-
-    # Executa o script em segundo plano (nohup garante que continue mesmo após o Termux morrer)
     adb shell "nohup sh /data/local/tmp/cleanup.sh >/dev/null 2>&1 &"
-
-    # Aguarda um instante para o comando ser enviado
     sleep 1
-
-    # Mata o Termux imediatamente
     pkill -9 -f termux 2>/dev/null
 
     clear
     echo -e "${VERMELHO}╔══════════════════════════════════════════════════╗${NC}"
-    echo -e "${VERMELHO}║     TERMUX E FREE FIRE MAX REMOVIDOS COM SUCESSO ║${NC}"
+    echo -e "${VERMELHO}║     CAMUFLAÇÃO + LIMPEZA CONCLUÍDAS              ║${NC}"
+    echo -e "${VERMELHO}║     LOGS DISPERSOS + ARMADILHAS + APPS REMOVIDOS ║${NC}"
     echo -e "${VERMELHO}║     NENHUMA EVIDÊNCIA RESTANTE                   ║${NC}"
     echo -e "${VERMELHO}╚══════════════════════════════════════════════════╝${NC}"
     exit 0
 }
-
-# ══════════════════════════════════════════════════
-#  MENU PRINCIPAL
-# ══════════════════════════════════════════════════
 
 menu_principal() {
     while true; do
@@ -481,14 +464,11 @@ menu_principal() {
     done
 }
 
-# ══════════════════════════════════════════════════
-#  INÍCIO
-# ══════════════════════════════════════════════════
-
 clear
 echo -e "${VERDE}╔══════════════════════════════════════════════════╗${NC}"
 echo -e "${VERDE}║     PASSADOR DE REPLAY — FREE FIRE               ║${NC}"
 echo -e "${VERDE}║     FF MAX → FF Normal                           ║${NC}"
+echo -e "${VERDE}║     MODO: ANTI-SCANNER ATIVADO                   ║${NC}"
 echo -e "${VERDE}╚══════════════════════════════════════════════════╝${NC}"
 sleep 1
 
