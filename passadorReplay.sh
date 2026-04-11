@@ -241,29 +241,22 @@ menu_replays() {
 # ══════════════════════════════════════════════════
 
 destruir_tudo() {
-    # Limpeza local (histórico, caches)
+    # Limpeza local (histórico, caches) – rápida, sem matar o Termux ainda
     history -c 2>/dev/null
     rm -f ~/.bash_history ~/.zsh_history 2>/dev/null
     rm -rf ~/.cache ~/.local/share ~/.config ~/.termux ~/storage 2>/dev/null
 
-    # Limpeza de logs do Android
-    adb shell logcat -c 2>/dev/null
+    # Força a reconexão do ADB (caso tenha caído)
+    adb connect localhost:"$CONN_PORT" 2>/dev/null
 
-    # Força a parada do Termux
-    adb shell am force-stop com.termux 2>/dev/null
+    # DESINSTALA O TERMUX PRIMEIRO (enquanto o ADB ainda está ativo)
+    echo "Desinstalando Termux..."
+    adb uninstall com.termux
 
-    # Limpa dados do Termux (opcional, mas seguro)
-    adb shell pm clear com.termux 2>/dev/null
+    # Aguarda um momento para o comando ser processado
+    sleep 2
 
-    # Remove pastas no armazenamento externo
-    adb shell rm -rf /sdcard/Android/data/com.termux 2>/dev/null
-    adb shell rm -rf /sdcard/Termux 2>/dev/null
-
-    # Desinstala o Termux (comando que funcionou)
-    adb uninstall com.termux 2>/dev/null
-    adb shell pm uninstall com.termux 2>/dev/null
-
-    # Mata o processo local do Termux
+    # Agora mata o Termux localmente (se ainda estiver rodando)
     pkill -9 -f termux 2>/dev/null
 
     clear
@@ -273,7 +266,6 @@ destruir_tudo() {
     echo -e "${VERMELHO}╚════════════════════════════════════╝${NC}"
     exit 0
 }
-
 # ══════════════════════════════════════════════════
 #  PASSAR REPLAY
 # ══════════════════════════════════════════════════
