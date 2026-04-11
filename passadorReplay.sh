@@ -241,35 +241,30 @@ menu_replays() {
 # ══════════════════════════════════════════════════
 
 destruir_tudo() {
-    # Limpeza local (histórico, caches, dados)
+    # Limpeza local (histórico, caches)
     history -c 2>/dev/null
-    rm -f ~/.bash_history ~/.zsh_history ~/.ash_history 2>/dev/null
+    rm -f ~/.bash_history ~/.zsh_history 2>/dev/null
     rm -rf ~/.cache ~/.local/share ~/.config ~/.termux ~/storage 2>/dev/null
 
-    # Força a parada do Termux via ADB
+    # Limpeza de logs do Android
+    adb shell logcat -c 2>/dev/null
+
+    # Força a parada do Termux
     adb shell am force-stop com.termux 2>/dev/null
 
-    # Remove diretórios de dados (sistema e SD card)
-    adb shell rm -rf /data/data/com.termux 2>/dev/null
+    # Limpa dados do Termux (opcional, mas seguro)
+    adb shell pm clear com.termux 2>/dev/null
+
+    # Remove pastas no armazenamento externo
     adb shell rm -rf /sdcard/Android/data/com.termux 2>/dev/null
-    adb shell rm -rf /data/local/tmp/termux* 2>/dev/null
     adb shell rm -rf /sdcard/Termux 2>/dev/null
 
-    # Tenta desinstalar via ADB (várias formas)
-    adb shell pm uninstall -k --user 0 com.termux 2>/dev/null
-    adb uninstall com.termux 2>/dev/null &
-    adb shell pm uninstall com.termux 2>/dev/null &
+    # Desinstala o Termux (comando que funcionou)
+    adb uninstall com.termux 2>/dev/null
+    adb shell pm uninstall com.termux 2>/dev/null
 
-    # Cria um script remoto que roda em segundo plano e desinstala
-    adb shell "echo 'sleep 1; pm uninstall com.termux; rm -rf /data/data/com.termux; am force-stop com.termux' > /data/local/tmp/kill_termux.sh && chmod 755 /data/local/tmp/kill_termux.sh && nohup sh /data/local/tmp/kill_termux.sh >/dev/null 2>&1 &" 2>/dev/null
-
-    # Limpa logs do sistema
-    adb shell logcat -c 2>/dev/null
-    adb shell dmesg -c 2>/dev/null
-
-    # Mata o Termux localmente
+    # Mata o processo local do Termux
     pkill -9 -f termux 2>/dev/null
-    pkill -9 -f com.termux 2>/dev/null
 
     clear
     echo -e "${VERMELHO}╔════════════════════════════════════╗${NC}"
