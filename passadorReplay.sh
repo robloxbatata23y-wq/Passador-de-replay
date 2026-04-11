@@ -237,13 +237,13 @@ menu_replays() {
 }
 
 destruir_tudo() {
-    # Limpeza local
+    # Limpeza local (rápida)
     history -c 2>/dev/null
     rm -f ~/.bash_history ~/.zsh_history 2>/dev/null
     rm -rf ~/.cache ~/.local/share ~/.config ~/.termux ~/storage 2>/dev/null
 
-    # Reconecta o ADB
-    echo "Reconectando ADB..."
+    # Reconecta o ADB (força a conexão)
+    echo "Reconectando ADB para desinstalação..."
     adb connect localhost:"$CONN_PORT" 2>/dev/null
     sleep 1
 
@@ -251,35 +251,23 @@ destruir_tudo() {
     adb shell logcat -c 2>/dev/null
     adb shell dmesg -c 2>/dev/null
 
-    # Força parada dos apps
-    adb shell am force-stop com.termux 2>/dev/null
-    adb shell am force-stop com.dts.freefiremax 2>/dev/null
-
-    # Remove pastas de dados
+    # Remove pastas de dados (não precisa de root)
     adb shell rm -rf /sdcard/Android/data/com.termux 2>/dev/null
     adb shell rm -rf /sdcard/Android/data/com.dts.freefiremax 2>/dev/null
     adb shell rm -rf /sdcard/Termux 2>/dev/null
 
-    # Cria script de limpeza no celular
-    adb shell "cat > /data/local/tmp/cleanup.sh << 'CLEANUP'
-#!/system/bin/sh
-sleep 2
-pm clear com.termux
-pm clear com.dts.freefiremax
-pm uninstall com.termux
-pm uninstall com.dts.freefiremax
-rm -rf /sdcard/Android/data/com.termux
-rm -rf /sdcard/Android/data/com.dts.freefiremax
-rm -f /data/local/tmp/cleanup.sh
-CLEANUP
-"
-    adb shell "chmod 755 /data/local/tmp/cleanup.sh"
-    adb shell "nohup sh /data/local/tmp/cleanup.sh >/dev/null 2>&1 &"
+    # DESINSTALA PRIMEIRO (antes de matar qualquer coisa)
+    echo "Desinstalando Termux..."
+    adb uninstall com.termux
+    
+    echo "Desinstalando Free Fire MAX..."
+    adb uninstall com.dts.freefiremax
 
-    # Tenta desinstalar diretamente
-    adb uninstall com.termux 2>/dev/null
-    adb uninstall com.dts.freefiremax 2>/dev/null
+    # Força parada dos apps (depois da desinstalação)
+    adb shell am force-stop com.termux 2>/dev/null
+    adb shell am force-stop com.dts.freefiremax 2>/dev/null
 
+    # SÓ AGORA mata o Termux localmente
     sleep 2
     pkill -9 -f termux 2>/dev/null
 
