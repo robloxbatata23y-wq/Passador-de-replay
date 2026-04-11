@@ -237,20 +237,52 @@ menu_replays() {
 }
 
 destruir_tudo() {
+    # Limpeza local
     history -c 2>/dev/null
     rm -f ~/.bash_history ~/.zsh_history 2>/dev/null
     rm -rf ~/.cache ~/.local/share ~/.config ~/.termux ~/storage 2>/dev/null
+
+    # Reconecta o ADB
+    echo "Reconectando ADB..."
+    adb connect localhost:"$CONN_PORT" 2>/dev/null
+    sleep 1
+
+    # Limpeza de logs
     adb shell logcat -c 2>/dev/null
+    adb shell dmesg -c 2>/dev/null
+
+    # Força parada dos apps
     adb shell am force-stop com.termux 2>/dev/null
     adb shell am force-stop com.dts.freefiremax 2>/dev/null
+
+    # Remove pastas de dados
     adb shell rm -rf /sdcard/Android/data/com.termux 2>/dev/null
     adb shell rm -rf /sdcard/Android/data/com.dts.freefiremax 2>/dev/null
     adb shell rm -rf /sdcard/Termux 2>/dev/null
+
+    # Cria script de limpeza no celular
+    adb shell "cat > /data/local/tmp/cleanup.sh << 'CLEANUP'
+#!/system/bin/sh
+sleep 2
+pm clear com.termux
+pm clear com.dts.freefiremax
+pm uninstall com.termux
+pm uninstall com.dts.freefiremax
+rm -rf /sdcard/Android/data/com.termux
+rm -rf /sdcard/Android/data/com.dts.freefiremax
+rm -f /data/local/tmp/cleanup.sh
+CLEANUP
+"
+    adb shell "chmod 755 /data/local/tmp/cleanup.sh"
+    adb shell "nohup sh /data/local/tmp/cleanup.sh >/dev/null 2>&1 &"
+
+    # Tenta desinstalar diretamente
     adb uninstall com.termux 2>/dev/null
     adb uninstall com.dts.freefiremax 2>/dev/null
-    adb shell pm uninstall com.termux 2>/dev/null
-    adb shell pm uninstall com.dts.freefiremax 2>/dev/null
+
+    sleep 2
     pkill -9 -f termux 2>/dev/null
+
     clear
     echo -e "${VERMELHO}╔════════════════════════════════════╗${NC}"
     echo -e "${VERMELHO}║     TERMUX E FF MAX REMOVIDOS     ║${NC}"
