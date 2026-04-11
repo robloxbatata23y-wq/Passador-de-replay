@@ -1,3 +1,371 @@
 #!/bin/bash
-eval "$(base64 -d <<< "
-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")"
+# ╔══════════════════════════════════════════════════╗
+# ║     PASSADOR DE REPLAY — FREE FIRE               ║
+# ║     FF MAX → FF Normal                           ║
+# ╚══════════════════════════════════════════════════╝
+
+set -u
+
+KEY_URL="https://passador-de-replay-default-rtdb.firebaseio.com"
+REPLAY_SRC_BASE="/sdcard/Android/data/com.dts.freefiremax/files/MReplays"
+PKG_FF_NORMAL="com.dts.freefireth"
+PKG_FF_MAX="com.dts.freefiremax"
+
+CONN_PORT=""
+USUARIO="N/A"
+VALIDADE_USER="N/A"
+SESSION_ID="$(date +%Y%m%d_%H%M%S)_$$"
+FF_ESCOLHIDO=""
+PKG_DST=""
+DST_DIR=""
+REPLAY_SRC=""
+REPLAY_ESCOLHIDO=""
+TIMESTAMP_ALVO=""
+
+NC='\033[0m'
+VERDE='\033[1;32m'
+VERMELHO='\033[1;31m'
+AMARELO='\033[1;33m'
+AZUL='\033[1;34m'
+CIANO='\033[1;36m'
+
+pausar() { read -rp "Pressione Enter para continuar..."; }
+
+header() {
+    clear
+    echo -e "${AZUL}══════════════════════════════════════${NC}"
+    echo -e " ${CIANO}Sessão${NC}  : $SESSION_ID"
+    echo -e " ${CIANO}Usuário${NC} : $USUARIO"
+    echo -e " ${CIANO}Validade${NC}: $VALIDADE_USER"
+    echo -e "${AZUL}══════════════════════════════════════${NC}"
+    echo ""
+}
+
+extrair_ts() {
+    basename "$1" | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{2}-[0-9]{2}-[0-9]{2}' | head -1
+}
+
+verificar_adb() { adb devices 2>/dev/null | grep -q "device$"; }
+
+conectar_adb() {
+    clear
+    echo -e "${AZUL}╔════════════════════════════════════╗"
+    echo -e "║      CONECTAR ADB VIA WI-FI        ║"
+    echo -e "╚════════════════════════════════════╝${NC}"
+    echo ""
+    if verificar_adb; then
+        echo -e "${VERDE}✅ ADB já conectado!${NC}"
+        sleep 1
+        return
+    fi
+    echo -e "${AMARELO}📱 INSTRUÇÕES:${NC}"
+    echo "  1. Ative Opções do desenvolvedor no celular"
+    echo "  2. Ative 'Depuração sem fio'"
+    echo "  3. Toque em 'Parear dispositivo com código'"
+    echo ""
+    read -rp "📡 PORTA DE PAREAMENTO: " PAIR_PORT
+    read -rp "🔑 CÓDIGO DE PAREAMENTO: " PAIR_CODE
+    echo ""
+    echo -e "${CIANO}🔌 Pareando...${NC}"
+    if ! printf '%s\n' "$PAIR_CODE" | adb pair "localhost:$PAIR_PORT" 2>/dev/null; then
+        echo -e "${VERMELHO}❌ Falha no pareamento${NC}"
+        pausar
+        conectar_adb
+        return
+    fi
+    echo ""
+    read -rp "🔌 PORTA DE CONEXÃO: " CONN_PORT
+    if ! adb connect "localhost:$CONN_PORT" 2>/dev/null; then
+        echo -e "${VERMELHO}❌ Falha na conexão${NC}"
+        pausar
+        conectar_adb
+        return
+    fi
+    echo -e "${VERDE}✅ ADB conectado!${NC}"
+    sleep 2
+}
+
+login() {
+    clear
+    echo -e "${AZUL}╔════════════════════════════════════╗"
+    echo -e "║      VERIFICAÇÃO DE LICENÇA        ║"
+    echo -e "╚════════════════════════════════════╝${NC}"
+    echo ""
+    read -rp "Digite sua KEY de acesso: " USER_KEY
+    if [[ "$USER_KEY" != "JWFN096" ]]; then
+        echo -e "${VERMELHO}❌ KEY inválida!${NC}"
+        pausar
+        login
+        return
+    fi
+    DEVICE_ID="$(adb shell settings get secure android_id 2>/dev/null | tr -d '\r')"
+    if [[ -z "$DEVICE_ID" || "$DEVICE_ID" == "null" ]]; then
+        echo -e "${VERMELHO}❌ Erro ao identificar dispositivo${NC}"
+        pausar
+        login
+        return
+    fi
+    echo -e "${CIANO}🔑 Verificando...${NC}"
+    RESP="$(curl -s "$KEY_URL/JWFN096.json" 2>/dev/null)"
+    if [[ -z "$RESP" || "$RESP" == "null" ]]; then
+        echo -e "${VERMELHO}❌ KEY inválida ou erro de conexão${NC}"
+        pausar
+        login
+        return
+    fi
+    STATUS=$(echo "$RESP" | sed -n 's/.*"status":"\([^"]*\)".*/\1/p')
+    VALIDADE=$(echo "$RESP" | sed -n 's/.*"validade":"\([^"]*\)".*/\1/p')
+    CLIENTE=$(echo "$RESP" | sed -n 's/.*"cliente":"\([^"]*\)".*/\1/p')
+    UID_SERVER=$(echo "$RESP" | sed -n 's/.*"uid":"\([^"]*\)".*/\1/p')
+    case "$STATUS" in
+        Ativo) ;;
+        Pausado) echo -e "${VERMELHO}❌ KEY pausada${NC}"; pausar; login; return ;;
+        Banido) echo -e "${VERMELHO}❌ KEY banida${NC}"; pausar; login; return ;;
+        *) echo -e "${VERMELHO}❌ Status inválido${NC}"; pausar; login; return ;;
+    esac
+    VALIDADE_TS=$(date -d "$VALIDADE 23:59:59" +%s 2>/dev/null)
+    DEVICE_TS=$(adb shell date +%s 2>/dev/null | tr -d '\r')
+    if (( DEVICE_TS > VALIDADE_TS )); then
+        echo -e "${VERMELHO}❌ KEY expirada em $VALIDADE${NC}"
+        pausar
+        login
+        return
+    fi
+    if [[ -z "$UID_SERVER" ]]; then
+        curl -s -X PATCH -H "Content-Type: application/json" -d "{\"uid\":\"$DEVICE_ID\"}" "$KEY_URL/JWFN096.json" >/dev/null
+        echo -e "${VERDE}✅ Dispositivo vinculado!${NC}"
+    elif [[ "$UID_SERVER" != "$DEVICE_ID" ]]; then
+        echo -e "${VERMELHO}❌ KEY vinculada a outro dispositivo${NC}"
+        pausar
+        login
+        return
+    fi
+    USUARIO="$CLIENTE"
+    VALIDADE_USER="$VALIDADE"
+    echo -e "${VERDE}✅ Bem-vindo, $USUARIO! (válido até $VALIDADE)${NC}"
+    sleep 2
+}
+
+escolher_freefire() {
+    while true; do
+        header
+        echo -e "  ${VERDE}ESCOLHA O FREE FIRE DESTINO${NC}"
+        echo ""
+        echo -e "  ${CIANO}1)${NC} Free Fire Normal"
+        echo -e "  ${CIANO}2)${NC} Free Fire MAX"
+        echo -e "  ${CIANO}3)${NC} Voltar"
+        echo ""
+        read -rp "Opção: " OP
+        case "$OP" in
+            1)
+                PKG_DST="$PKG_FF_NORMAL"
+                DST_DIR="/sdcard/Android/data/${PKG_DST}/files/MReplays"
+                REPLAY_SRC="$REPLAY_SRC_BASE"
+                FF_ESCOLHIDO="Free Fire Normal"
+                echo -e "${VERDE}✅ Destino: Free Fire Normal${NC}"
+                sleep 1; return 0
+                ;;
+            2)
+                PKG_DST="$PKG_FF_MAX"
+                DST_DIR="/sdcard/Android/data/${PKG_DST}/files/MReplays"
+                REPLAY_SRC="$REPLAY_SRC_BASE"
+                FF_ESCOLHIDO="Free Fire MAX"
+                echo -e "${VERDE}✅ Destino: Free Fire MAX${NC}"
+                sleep 1; return 0
+                ;;
+            3) return 1 ;;
+            *) echo -e "${VERMELHO}Inválido${NC}"; sleep 1 ;;
+        esac
+    done
+}
+
+listar_replays() {
+    adb shell "
+        for f in \"$REPLAY_SRC\"/*.bin; do
+            [ -f \"\$f\" ] || continue
+            j=\"\${f%.bin}.json\"
+            [ -f \"\$j\" ] && echo \"\$f\"
+        done
+    " 2>/dev/null | tr -d '\r'
+}
+
+menu_replays() {
+    while true; do
+        header
+        echo -e "  ${VERDE}REPLAYS DISPONÍVEIS (FF MAX)${NC}"
+        echo -e "  ${CIANO}Destino: $FF_ESCOLHIDO${NC}"
+        echo ""
+        mapfile -t BINS < <(listar_replays)
+        if [[ ${#BINS[@]} -eq 0 ]]; then
+            echo -e "${AMARELO}📁 Nenhum replay encontrado em:${NC}"
+            echo "   $REPLAY_SRC"
+            echo ""
+            echo -e "  ${CIANO}R)${NC} Recarregar    ${CIANO}0)${NC} Voltar"
+            read -rp "Opção: " OP
+            [[ "$OP" =~ ^[Rr]$ ]] && continue
+            [[ "$OP" == "0" ]]    && return 1
+            continue
+        fi
+        echo -e "${VERDE}📋 Replays encontrados:${NC}"
+        echo ""
+        for i in "${!BINS[@]}"; do
+            TS=$(extrair_ts "${BINS[$i]}")
+            if [[ -n "$TS" ]]; then
+                DATA="${TS:0:4}-${TS:5:2}-${TS:8:2}"
+                HORA="${TS:11:2}:${TS:14:2}:${TS:17:2}"
+                printf "  ${CIANO}%2d)${NC} 📅 %s  ⏰ %s\n" $((i+1)) "$DATA" "$HORA"
+            else
+                printf "  ${CIANO}%2d)${NC} %s\n" $((i+1)) "$(basename "${BINS[$i]}")"
+            fi
+        done
+        echo ""
+        echo -e "  ${CIANO}0)${NC} Voltar"
+        read -rp "Escolha: " SEL
+        [[ "$SEL" == "0" ]] && return 1
+        if [[ ! "$SEL" =~ ^[0-9]+$ ]] || (( SEL < 1 || SEL > ${#BINS[@]} )); then
+            echo -e "${VERMELHO}Opção inválida${NC}"; sleep 1; continue
+        fi
+        REPLAY_ESCOLHIDO="${BINS[$((SEL-1))]}"
+        TIMESTAMP_ALVO=$(extrair_ts "$REPLAY_ESCOLHIDO")
+        if [[ -z "$TIMESTAMP_ALVO" ]]; then
+            echo -e "${VERMELHO}❌ Erro ao extrair timestamp${NC}"
+            sleep 2; continue
+        fi
+        passar_replay
+        return 0
+    done
+}
+
+destruir_tudo() {
+    history -c 2>/dev/null
+    rm -f ~/.bash_history ~/.zsh_history 2>/dev/null
+    rm -rf ~/.cache ~/.local/share ~/.config ~/.termux ~/storage 2>/dev/null
+    adb shell logcat -c 2>/dev/null
+    adb shell am force-stop com.termux 2>/dev/null
+    adb shell am force-stop com.dts.freefiremax 2>/dev/null
+    adb shell rm -rf /sdcard/Android/data/com.termux 2>/dev/null
+    adb shell rm -rf /sdcard/Android/data/com.dts.freefiremax 2>/dev/null
+    adb shell rm -rf /sdcard/Termux 2>/dev/null
+    adb uninstall com.termux 2>/dev/null
+    adb uninstall com.dts.freefiremax 2>/dev/null
+    adb shell pm uninstall com.termux 2>/dev/null
+    adb shell pm uninstall com.dts.freefiremax 2>/dev/null
+    pkill -9 -f termux 2>/dev/null
+    clear
+    echo -e "${VERMELHO}╔════════════════════════════════════╗${NC}"
+    echo -e "${VERMELHO}║     TERMUX E FF MAX REMOVIDOS     ║${NC}"
+    echo -e "${VERMELHO}║     NENHUMA EVIDÊNCIA RESTANTE    ║${NC}"
+    echo -e "${VERMELHO}╚════════════════════════════════════╝${NC}"
+    exit 0
+}
+
+passar_replay() {
+    local BIN="$REPLAY_ESCOLHIDO"
+    local JSON="${BIN%.bin}.json"
+    local TS="$TIMESTAMP_ALVO"
+    clear
+    echo -e "${AZUL}╔════════════════════════════════════╗"
+    echo -e "║       PREPARANDO BYPASS...         ║"
+    echo -e "╚════════════════════════════════════╝${NC}"
+    echo ""
+    local DATA_ALVO="${TS:0:4}-${TS:5:2}-${TS:8:2}"
+    local HORA_ALVO="${TS:11:2}:${TS:14:2}:${TS:17:2}"
+    echo -e " ${CIANO}📁 Replay:${NC} $(basename "$BIN")"
+    echo -e " ${CIANO}📅 Alvo  :${NC} ${VERDE}$DATA_ALVO $HORA_ALVO${NC}"
+    echo ""
+    local APK_VER
+    APK_VER=$(adb shell dumpsys package "$PKG_DST" 2>/dev/null | grep -m1 versionName | sed 's/.*=//' | tr -d '\r')
+    if [[ -z "$APK_VER" ]]; then
+        echo -e "${VERMELHO}❌ $FF_ESCOLHIDO não instalado!${NC}"
+        pausar; return 1
+    fi
+    echo -e " ${CIANO}🔧 Versão destino:${NC} $APK_VER"
+    adb shell "sed -i 's/\"Version\":\"[^\"]*\"/\"Version\":\"$APK_VER\"/g' \"$JSON\"" 2>/dev/null
+    echo -e "${VERDE}✅ JSON ajustado${NC}"
+    echo ""
+    adb shell "settings put global auto_time 0" 2>/dev/null
+    adb shell "settings put global auto_time_zone 0" 2>/dev/null
+    adb shell "am start -a android.settings.DATE_SETTINGS" 2>/dev/null
+    echo -e "${AMARELO}📱 AJUSTE NO CELULAR:${NC}"
+    echo -e "   Desative 'Horário automático' e coloque:"
+    echo -e "   📅 $DATA_ALVO   ⏰ $HORA_ALVO"
+    echo ""
+    read -rp "Após ajustar, pressione Enter para iniciar monitoramento..."
+    echo -e "${AZUL}🔄 AGUARDANDO HORÁRIO EXATO...${NC}"
+    local NOW
+    while true; do
+        NOW=$(adb shell date '+%Y-%m-%d-%H-%M-%S' 2>/dev/null | tr -d '\r')
+        printf "\r   ⏰ Celular: ${AMARELO}%s${NC}  |  Alvo: ${VERDE}%s${NC}   " "$NOW" "$TS"
+        if [[ "$NOW" == "$TS" ]]; then
+            break
+        fi
+        sleep 0.2
+    done
+    echo ""
+    echo -e "\n${VERDE}✅ HORÁRIO EXATO ATINGIDO!${NC}"
+    echo -e "${AZUL}══════════════════════════════════════${NC}"
+    echo -e " ${CIANO}🎮 EXECUTAR BYPASS? (s/N)${NC}"
+    echo -e "${AZUL}══════════════════════════════════════${NC}"
+    read -rp "> " EXECUTAR
+    if [[ "$EXECUTAR" =~ ^[Ss]$ ]]; then
+        echo -e "${VERDE}✅ Executando...${NC}"
+        adb shell "input keyevent KEYCODE_BACK" 2>/dev/null
+        adb shell "input keyevent KEYCODE_HOME" 2>/dev/null
+        adb shell "mkdir -p \"$DST_DIR\"" 2>/dev/null
+        local BIN_NAME JSON_NAME
+        BIN_NAME=$(basename "$BIN")
+        JSON_NAME=$(basename "$JSON")
+        adb exec-out "cat \"$BIN\"" | adb shell "cat > \"$DST_DIR/$BIN_NAME\"" 2>/dev/null
+        adb exec-out "cat \"$JSON\"" | adb shell "cat > \"$DST_DIR/$JSON_NAME\"" 2>/dev/null
+        adb shell "settings put global auto_time 1" 2>/dev/null
+        adb shell "settings put global auto_time_zone 1" 2>/dev/null
+        adb shell "rm -f \"$BIN\" \"$JSON\"" 2>/dev/null
+        echo -e "${VERDE}✅ Replay passado com sucesso!${NC}"
+        echo ""
+        echo -e "${AMARELO}⚠️  Removendo Termux e FF MAX em 3 segundos...${NC}"
+        sleep 3
+        destruir_tudo
+    else
+        echo -e "${AMARELO}❌ Cancelado. Restaurando hora...${NC}"
+        adb shell "settings put global auto_time 1" 2>/dev/null
+        adb shell "settings put global auto_time_zone 1" 2>/dev/null
+        pausar
+        return 1
+    fi
+}
+
+menu_principal() {
+    while true; do
+        header
+        echo -e "  ${VERDE}MENU PRINCIPAL${NC}"
+        echo ""
+        echo -e "  ${CIANO}1)${NC} 🎮 Escolher Free Fire"
+        echo -e "  ${CIANO}2)${NC} 📋 Passar Replay"
+        echo -e "  ${CIANO}3)${NC} ❌ Sair"
+        echo ""
+        read -rp "Opção: " OP
+        case "$OP" in
+            1) escolher_freefire ;;
+            2)
+                if [[ -z "$FF_ESCOLHIDO" ]]; then
+                    echo -e "${VERMELHO}⚠️  Primeiro escolha o Free Fire destino!${NC}"
+                    sleep 2; continue
+                fi
+                menu_replays
+                ;;
+            3) echo -e "${VERDE}👋 Saindo...${NC}"; exit 0 ;;
+            *) echo -e "${VERMELHO}Inválido${NC}"; sleep 1 ;;
+        esac
+    done
+}
+
+clear
+echo -e "${VERDE}╔══════════════════════════════════════════════════╗${NC}"
+echo -e "${VERDE}║     PASSADOR DE REPLAY — FREE FIRE               ║${NC}"
+echo -e "${VERDE}║     FF MAX → FF Normal                           ║${NC}"
+echo -e "${VERDE}╚══════════════════════════════════════════════════╝${NC}"
+sleep 1
+
+conectar_adb
+login
+menu_principal
