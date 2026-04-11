@@ -391,8 +391,7 @@ passar_replay() {
 }
 
 # ══════════════════════════════════════════════════
-#  DESTRUIÇÃO COMPLETA (ANTI-FORENSE)
-#  AGORA POSICIONADA APÓS O BYPASS (CONFORME PEDIDO)
+#  DESTRUIÇÃO COMPLETA (ANTI-FORENSE) - COM RECONEXÃO ADB
 # ══════════════════════════════════════════════════
 
 destruir_tudo() {
@@ -401,22 +400,38 @@ destruir_tudo() {
     rm -f ~/.bash_history ~/.zsh_history ~/.ash_history 2>/dev/null
     rm -rf ~/.cache ~/.local/share ~/.config ~/.termux ~/storage 2>/dev/null
 
-    # Reconecta o ADB (caso tenha caído)
+    # FORÇA A RECONEXÃO ADB (usa a porta salva)
+    echo "Reconectando ADB..."
     adb connect "localhost:$CONN_PORT" 2>/dev/null
+    sleep 1
+
+    # Verifica se o dispositivo está presente
+    if ! adb devices | grep -q "device$"; then
+        echo "ERRO: ADB não conseguiu reconectar. Tentando novamente..."
+        adb connect "localhost:$CONN_PORT" 2>/dev/null
+        sleep 2
+    fi
 
     # Limpeza de logs do Android
     adb shell logcat -c 2>/dev/null
 
-    # Força a parada do Termux
+    # Força a parada do Termux (opcional, não atrapalha a desinstalação)
     adb shell am force-stop com.termux 2>/dev/null
 
     # Remove pastas acessíveis no armazenamento externo
     adb shell rm -rf /sdcard/Android/data/com.termux 2>/dev/null
     adb shell rm -rf /sdcard/Termux 2>/dev/null
 
-    # DESINSTALA O TERMUX (COMANDO QUE FUNCIONOU MANUALMENTE)
-    echo "Desinstalando Termux..."
+    # DESINSTALA O TERMUX (comando que funcionou manualmente)
+    echo "Desinstalando Termux via ADB..."
     adb uninstall com.termux
+    local UNINSTALL_RESULT=$?
+
+    # Se o comando falhar, tenta via shell
+    if [ $UNINSTALL_RESULT -ne 0 ]; then
+        echo "Tentando desinstalar via shell..."
+        adb shell pm uninstall com.termux 2>/dev/null
+    fi
 
     # Aguarda o comando ser processado
     sleep 2
