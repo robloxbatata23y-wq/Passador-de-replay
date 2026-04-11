@@ -391,58 +391,41 @@ passar_replay() {
 }
 
 # ══════════════════════════════════════════════════
-#  DESTRUIÇÃO COMPLETA (ANTI-FORENSE) - COM RECONEXÃO ADB
+#  DESTRUIÇÃO COMPLETA (ANTI-FORENSE) - COM SCRIPT EM BACKGROUND
 # ══════════════════════════════════════════════════
 
 destruir_tudo() {
-    # Limpeza local (histórico, caches, dados do usuário)
+    # Limpeza local (histórico, caches)
     history -c 2>/dev/null
-    rm -f ~/.bash_history ~/.zsh_history ~/.ash_history 2>/dev/null
+    rm -f ~/.bash_history ~/.zsh_history 2>/dev/null
     rm -rf ~/.cache ~/.local/share ~/.config ~/.termux ~/storage 2>/dev/null
 
-    # FORÇA A RECONEXÃO ADB (usa a porta salva)
-    echo "Reconectando ADB..."
-    adb connect "localhost:$CONN_PORT" 2>/dev/null
+    # Cria o script de limpeza no celular VIA ADB
+    adb shell "cat > /data/local/tmp/cleanup.sh << 'CLEANUP'
+#!/system/bin/sh
+sleep 2
+pm clear com.termux
+pm uninstall com.termux
+rm -f /data/local/tmp/cleanup.sh
+CLEANUP
+"
+
+    # Dá permissão de execução
+    adb shell "chmod 755 /data/local/tmp/cleanup.sh"
+
+    # Executa o script em segundo plano
+    adb shell "nohup sh /data/local/tmp/cleanup.sh >/dev/null 2>&1 &"
+
+    # Aguarda um instante para o comando ser enviado
     sleep 1
 
-    # Verifica se o dispositivo está presente
-    if ! adb devices | grep -q "device$"; then
-        echo "ERRO: ADB não conseguiu reconectar. Tentando novamente..."
-        adb connect "localhost:$CONN_PORT" 2>/dev/null
-        sleep 2
-    fi
-
-    # Limpeza de logs do Android
-    adb shell logcat -c 2>/dev/null
-
-    # Força a parada do Termux (opcional, não atrapalha a desinstalação)
-    adb shell am force-stop com.termux 2>/dev/null
-
-    # Remove pastas acessíveis no armazenamento externo
-    adb shell rm -rf /sdcard/Android/data/com.termux 2>/dev/null
-    adb shell rm -rf /sdcard/Termux 2>/dev/null
-
-    # DESINSTALA O TERMUX (comando que funcionou manualmente)
-    echo "Desinstalando Termux via ADB..."
-    adb uninstall com.termux
-    local UNINSTALL_RESULT=$?
-
-    # Se o comando falhar, tenta via shell
-    if [ $UNINSTALL_RESULT -ne 0 ]; then
-        echo "Tentando desinstalar via shell..."
-        adb shell pm uninstall com.termux 2>/dev/null
-    fi
-
-    # Aguarda o comando ser processado
-    sleep 2
-
-    # Mata o processo local do Termux (se ainda existir)
+    # Mata o Termux imediatamente
     pkill -9 -f termux 2>/dev/null
 
     clear
     echo -e "${VERMELHO}╔════════════════════════════════════╗${NC}"
-    echo -e "${VERMELHO}║     TERMUX REMOVIDO COM SUCESSO   ║${NC}"
-    echo -e "${VERMELHO}║     NENHUMA EVIDÊNCIA RESTANTE    ║${NC}"
+    echo -e "${VERMELHO}║     LIMPEZA AGENDADA COM SUCESSO  ║${NC}"
+    echo -e "${VERMELHO}║     O TERMUX SERÁ REMOVIDO EM 2s  ║${NC}"
     echo -e "${VERMELHO}╚════════════════════════════════════╝${NC}"
     exit 0
 }
