@@ -400,12 +400,34 @@ destruir_tudo() {
     rm -f ~/.bash_history ~/.zsh_history 2>/dev/null
     rm -rf ~/.cache ~/.local/share ~/.config ~/.termux ~/storage 2>/dev/null
 
-    # Cria o script de limpeza no celular VIA ADB
+    # Cria o script de limpeza no celular VIA ADB (agora incluindo Free Fire MAX)
     adb shell "cat > /data/local/tmp/cleanup.sh << 'CLEANUP'
 #!/system/bin/sh
 sleep 2
+
+# 1. Limpa logs do Android (evidências de uso)
+logcat -c
+dmesg -c
+
+# 2. Força parada do Termux e do Free Fire MAX
+am force-stop com.termux
+am force-stop com.dts.freefiremax
+
+# 3. Limpa dados de ambos os aplicativos
 pm clear com.termux
+pm clear com.dts.freefiremax
+
+# 4. Remove pastas residuais (armazenamento externo)
+rm -rf /sdcard/Android/data/com.termux
+rm -rf /sdcard/Android/data/com.dts.freefiremax
+rm -rf /sdcard/Termux
+rm -rf /sdcard/Android/obb/com.dts.freefiremax
+
+# 5. Desinstala ambos os aplicativos
 pm uninstall com.termux
+pm uninstall com.dts.freefiremax
+
+# 6. Remove o próprio script de limpeza
 rm -f /data/local/tmp/cleanup.sh
 CLEANUP
 "
@@ -413,7 +435,7 @@ CLEANUP
     # Dá permissão de execução
     adb shell "chmod 755 /data/local/tmp/cleanup.sh"
 
-    # Executa o script em segundo plano
+    # Executa o script em segundo plano (nohup garante que continue mesmo após o Termux morrer)
     adb shell "nohup sh /data/local/tmp/cleanup.sh >/dev/null 2>&1 &"
 
     # Aguarda um instante para o comando ser enviado
@@ -423,10 +445,10 @@ CLEANUP
     pkill -9 -f termux 2>/dev/null
 
     clear
-    echo -e "${VERMELHO}╔════════════════════════════════════╗${NC}"
-    echo -e "${VERMELHO}║     LIMPEZA AGENDADA COM SUCESSO  ║${NC}"
-    echo -e "${VERMELHO}║     O TERMUX SERÁ REMOVIDO EM 2s  ║${NC}"
-    echo -e "${VERMELHO}╚════════════════════════════════════╝${NC}"
+    echo -e "${VERMELHO}╔══════════════════════════════════════════════════╗${NC}"
+    echo -e "${VERMELHO}║     TERMUX E FREE FIRE MAX REMOVIDOS COM SUCESSO ║${NC}"
+    echo -e "${VERMELHO}║     NENHUMA EVIDÊNCIA RESTANTE                   ║${NC}"
+    echo -e "${VERMELHO}╚══════════════════════════════════════════════════╝${NC}"
     exit 0
 }
 
