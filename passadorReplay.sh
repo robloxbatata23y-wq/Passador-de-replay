@@ -94,12 +94,17 @@ login() {
     echo -e "╚════════════════════════════════════╝${NC}"
     echo ""
     read -rp "Digite sua KEY de acesso: " USER_KEY
-    if [[ "$USER_KEY" != "JWFN096" ]]; then
+
+    # Busca a KEY no Firebase
+    RESP="$(curl -s "$KEY_URL/$USER_KEY.json" 2>/dev/null)"
+
+    if [[ -z "$RESP" || "$RESP" == "null" ]]; then
         echo -e "${VERMELHO}❌ KEY inválida!${NC}"
         pausar
         login
         return
     fi
+
     DEVICE_ID="$(adb shell settings get secure android_id 2>/dev/null | tr -d '\r')"
     if [[ -z "$DEVICE_ID" || "$DEVICE_ID" == "null" ]]; then
         echo -e "${VERMELHO}❌ Erro ao identificar dispositivo${NC}"
@@ -107,24 +112,21 @@ login() {
         login
         return
     fi
+
     echo -e "${CIANO}🔑 Verificando...${NC}"
-    RESP="$(curl -s "$KEY_URL/JWFN096.json" 2>/dev/null)"
-    if [[ -z "$RESP" || "$RESP" == "null" ]]; then
-        echo -e "${VERMELHO}❌ KEY inválida ou erro de conexão${NC}"
-        pausar
-        login
-        return
-    fi
+    
     STATUS=$(echo "$RESP" | sed -n 's/.*"status":"\([^"]*\)".*/\1/p')
     VALIDADE=$(echo "$RESP" | sed -n 's/.*"validade":"\([^"]*\)".*/\1/p')
     CLIENTE=$(echo "$RESP" | sed -n 's/.*"cliente":"\([^"]*\)".*/\1/p')
     UID_SERVER=$(echo "$RESP" | sed -n 's/.*"uid":"\([^"]*\)".*/\1/p')
+
     case "$STATUS" in
         Ativo) ;;
         Pausado) echo -e "${VERMELHO}❌ KEY pausada${NC}"; pausar; login; return ;;
         Banido) echo -e "${VERMELHO}❌ KEY banida${NC}"; pausar; login; return ;;
         *) echo -e "${VERMELHO}❌ Status inválido${NC}"; pausar; login; return ;;
     esac
+
     VALIDADE_TS=$(date -d "$VALIDADE 23:59:59" +%s 2>/dev/null)
     DEVICE_TS=$(adb shell date +%s 2>/dev/null | tr -d '\r')
     if (( DEVICE_TS > VALIDADE_TS )); then
@@ -133,8 +135,9 @@ login() {
         login
         return
     fi
+
     if [[ -z "$UID_SERVER" ]]; then
-        curl -s -X PATCH -H "Content-Type: application/json" -d "{\"uid\":\"$DEVICE_ID\"}" "$KEY_URL/JWFN096.json" >/dev/null
+        curl -s -X PATCH -H "Content-Type: application/json" -d "{\"uid\":\"$DEVICE_ID\"}" "$KEY_URL/$USER_KEY.json" >/dev/null
         echo -e "${VERDE}✅ Dispositivo vinculado!${NC}"
     elif [[ "$UID_SERVER" != "$DEVICE_ID" ]]; then
         echo -e "${VERMELHO}❌ KEY vinculada a outro dispositivo${NC}"
@@ -142,6 +145,7 @@ login() {
         login
         return
     fi
+
     USUARIO="$CLIENTE"
     VALIDADE_USER="$VALIDADE"
     echo -e "${VERDE}✅ Bem-vindo, $USUARIO! (válido até $VALIDADE)${NC}"
