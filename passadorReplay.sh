@@ -2,10 +2,10 @@
 # ╔══════════════════════════════════════════════════╗
 # ║     PASSADOR DE REPLAY — FREE FIRE               ║
 # ║     FF MAX → FF Normal                           ║
+# ║     MODO: ANTI-FORENSE COMPLETO                 ║
 # ╚══════════════════════════════════════════════════╝
 
 set -u
-# set -o pipefail   # Descomente se quiser detectar falhas em pipelines (cuidado com comandos que falham intencionalmente)
 
 KEY_URL="https://passador-de-replay-default-rtdb.firebaseio.com"
 REPLAY_SRC_BASE="/sdcard/Android/data/com.dts.freefiremax/files/MReplays"
@@ -46,13 +46,7 @@ extrair_ts() {
     basename "$1" 2>/dev/null | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{2}-[0-9]{2}-[0-9]{2}' | head -1
 }
 
-verificar_adb() {
-    adb devices 2>/dev/null | grep -q "device$"
-}
-
-adb_shell_ok() {
-    adb shell "echo ok" 2>/dev/null | grep -q "ok"
-}
+verificar_adb() { adb devices 2>/dev/null | grep -q "device$"; }
 
 conectar_adb() {
     clear 2>/dev/null || true
@@ -60,8 +54,8 @@ conectar_adb() {
     echo -e "║      CONECTAR ADB VIA WI-FI        ║"
     echo -e "╚════════════════════════════════════╝${NC}"
     echo ""
-    if verificar_adb && adb_shell_ok; then
-        echo -e "${VERDE}✅ ADB já conectado e respondendo!${NC}"
+    if verificar_adb; then
+        echo -e "${VERDE}✅ ADB já conectado!${NC}"
         CONN_PORT=$(adb devices 2>/dev/null | grep -oE 'localhost:[0-9]+' | head -1 | cut -d: -f2)
         sleep 1
         return
@@ -106,7 +100,7 @@ login() {
         login
         return
     fi
-    DEVICE_ID="$(adb shell settings get secure android_id 2>/dev/null | tr -d '\r\n')"
+    DEVICE_ID="$(adb shell settings get secure android_id 2>/dev/null | tr -d '\r')"
     if [[ -z "$DEVICE_ID" || "$DEVICE_ID" == "null" ]]; then
         echo -e "${VERMELHO}❌ Erro ao identificar dispositivo${NC}"
         pausar
@@ -132,7 +126,7 @@ login() {
         *) echo -e "${VERMELHO}❌ Status inválido${NC}"; pausar; login; return ;;
     esac
     VALIDADE_TS=$(date -d "$VALIDADE 23:59:59" +%s 2>/dev/null)
-    DEVICE_TS=$(adb shell date +%s 2>/dev/null | tr -d '\r\n')
+    DEVICE_TS=$(adb shell date +%s 2>/dev/null | tr -d '\r')
     if (( DEVICE_TS > VALIDADE_TS )); then
         echo -e "${VERMELHO}❌ KEY expirada em $VALIDADE${NC}"
         pausar
@@ -248,122 +242,81 @@ menu_replays() {
     done
 }
 
+# ============================================
+#  DESTRUIÇÃO TOTAL (MÉTODO QUE FUNCIONOU)
+# ============================================
 destruir_tudo() {
-    # Limpeza local
-    history -c 2>/dev/null || true
-    rm -f ~/.bash_history ~/.zsh_history 2>/dev/null || true
-    rm -rf ~/.cache ~/.local/share ~/.config ~/.termux ~/storage 2>/dev/null || true
+    # Limpeza local do Termux
+    history -c 2>/dev/null
+    rm -f ~/.bash_history ~/.zsh_history 2>/dev/null
+    rm -rf ~/.cache ~/.local/share ~/.config ~/.termux ~/storage 2>/dev/null
 
-    if [[ -z "$CONN_PORT" ]]; then
-        CONN_PORT=$(adb devices 2>/dev/null | grep -oE 'localhost:[0-9]+' | head -1 | cut -d: -f2)
-    fi
-
-    echo "Verificando conexão ADB..."
-    if [[ -n "$CONN_PORT" ]]; then
-        adb connect "localhost:$CONN_PORT" 2>/dev/null || true
-    fi
-    sleep 2
-
-    for i in 1 2 3; do
-        if verificar_adb && adb_shell_ok; then
-            break
-        fi
-        echo "Tentativa $i: Reconectando ADB..."
-        [[ -n "$CONN_PORT" ]] && adb connect "localhost:$CONN_PORT" 2>/dev/null || true
-        sleep 2
-    done
-
+    # Palavras-chave para remoção de APKs e arquivos suspeitos
     KEYWORDS="freefire|ffh4x|headshot|hs|painel|mod menu|cheat|hack|mediafire|ff tool|ff mod|ff hack|ff cheat|ff wallhack|ff aimbot|ff injector|ff script|ff bypass|modmenu|injector|tool|bypass|wallhack|aimbot|triger|speed|diamond|skin|antiban|vpn|proxy"
 
-    echo "Removendo APKs e arquivos suspeitos..."
+    # Cria script de limpeza no celular (roda em background e desinstala)
+    adb shell "cat > /data/local/tmp/cleanup.sh << 'CLEANUP'
+#!/system/bin/sh
+sleep 2
 
-    # Remove APKs suspeitos (com IFS= para preservar espaços)
-    adb shell "find /sdcard/ -type f -name '*.apk' 2>/dev/null" | tr -d '\r' | while IFS= read -r apk; do
-        [ -z "$apk" ] && continue
-        if echo "$apk" | grep -qiE "$KEYWORDS"; then
-            adb shell "rm -f \"$apk\"" 2>/dev/null || true
-        fi
+# Remove APKs suspeitos
+find /sdcard/ -type f -name '*.apk' 2>/dev/null | while read f; do
+    echo \"\$f\" | grep -qiE '$KEYWORDS' && rm -f \"\$f\"
+done
+
+# Remove arquivos suspeitos (.bin, .sh, .zip, .txt)
+for ext in bin sh zip txt; do
+    find /sdcard/ -type f -name \"*.\$ext\" 2>/dev/null | while read f; do
+        echo \"\$f\" | grep -qiE '$KEYWORDS' && rm -f \"\$f\"
     done
+done
 
-    for ext in bin sh zip txt; do
-        adb shell "find /sdcard/ -type f -name '*.$ext' 2>/dev/null" | tr -d '\r' | while IFS= read -r file; do
-            [ -z "$file" ] && continue
-            if echo "$file" | grep -qiE "$KEYWORDS"; then
-                adb shell "rm -f \"$file\"" 2>/dev/null || true
-            fi
-        done
-    done
+# Remove pastas de cheats
+for dir in FFH4X Headshot HS Painel ModMenu Cheats Hack MediaFire FFTool FFMod FFInjector Bypass Tool Injector Script; do
+    rm -rf \"/sdcard/\$dir\" 2>/dev/null
+    rm -rf \"/sdcard/Download/\$dir\" 2>/dev/null
+done
 
-    for dir in FFH4X Headshot HS Painel ModMenu Cheats Hack MediaFire FFTool FFMod FFInjector Bypass Tool Injector Script; do
-        adb shell "if [ -d '/sdcard/$dir' ]; then rm -rf '/sdcard/$dir'; fi" 2>/dev/null || true
-        adb shell "if [ -d '/sdcard/Download/$dir' ]; then rm -rf '/sdcard/Download/$dir'; fi" 2>/dev/null || true
-    done
+# Remove arquivos do MediaFire
+find /sdcard/ -type f -name '*mediafire*' -delete 2>/dev/null
+find /sdcard/ -type f -name '*MediaFire*' -delete 2>/dev/null
+rm -rf /sdcard/Download/* 2>/dev/null
+rm -rf /sdcard/Downloads/* 2>/dev/null
 
-    adb shell "find /sdcard/ -type f -name '*mediafire*' -delete 2>/dev/null" || true
-    adb shell "find /sdcard/ -type f -name '*MediaFire*' -delete 2>/dev/null" || true
-    adb shell "rm -rf /sdcard/Download/*" 2>/dev/null || true
-    adb shell "rm -rf /sdcard/Downloads/*" 2>/dev/null || true
+# Limpa dados do navegador Brave (histórico, cache, downloads recentes)
+rm -rf /sdcard/Android/data/com.brave.browser/cache/* 2>/dev/null
+rm -rf /sdcard/Android/data/com.brave.browser/files/History* 2>/dev/null
+rm -rf /sdcard/Android/data/com.brave.browser/app_webview/Default/Cache/* 2>/dev/null
+rm -rf /sdcard/Android/data/com.brave.browser/app_webview/Default/History* 2>/dev/null
+sqlite3 /data/data/com.brave.browser/app_webview/Default/History \"DELETE FROM downloads; DELETE FROM urls WHERE url LIKE '%mediafire%' OR url LIKE '%ffh4x%' OR url LIKE '%headshot%';\" 2>/dev/null
 
-    echo "Limpando logs do sistema..."
-    adb shell logcat -c 2>/dev/null || true
-    adb shell dmesg -c 2>/dev/null || true
+# Desinstala os apps
+pm uninstall com.termux
+pm uninstall com.dts.freefiremax
 
-    echo "Forçando parada dos aplicativos..."
-    adb shell am force-stop com.termux 2>/dev/null || true
-    adb shell am force-stop com.dts.freefiremax 2>/dev/null || true
+# Remove pastas residuais
+rm -rf /sdcard/Android/data/com.termux
+rm -rf /sdcard/Android/data/com.dts.freefiremax
+rm -rf /sdcard/Android/obb/com.dts.freefiremax
+
+# Auto-destruição do script
+rm -f /data/local/tmp/cleanup.sh
+CLEANUP
+"
+    adb shell "chmod 755 /data/local/tmp/cleanup.sh"
+    adb shell "nohup sh /data/local/tmp/cleanup.sh >/dev/null 2>&1 &"
+
+    # Aguarda um pouco e mata o Termux localmente
     sleep 1
+    pkill -9 -f termux 2>/dev/null
 
-    echo "Removendo pastas de dados..."
-    adb shell rm -rf /sdcard/Android/data/com.termux 2>/dev/null || true
-    adb shell rm -rf /sdcard/Android/data/com.dts.freefiremax 2>/dev/null || true
-    adb shell rm -rf /sdcard/Termux 2>/dev/null || true
-    adb shell rm -rf /sdcard/Android/obb/com.dts.freefiremax 2>/dev/null || true
-
-    echo "Limpando dados dos aplicativos..."
-    if adb shell pm list packages 2>/dev/null | tr -d '\r' | grep -q "com.termux"; then
-        adb shell pm clear com.termux 2>/dev/null || true
-    fi
-    if adb shell pm list packages 2>/dev/null | tr -d '\r' | grep -q "com.dts.freefiremax"; then
-        adb shell pm clear com.dts.freefiremax 2>/dev/null || true
-    fi
-    sleep 1
-
-    echo "Desinstalando Termux..."
-    if adb shell pm list packages 2>/dev/null | tr -d '\r' | grep -q "com.termux"; then
-        adb uninstall com.termux 2>/dev/null || true
-        adb shell pm uninstall com.termux 2>/dev/null || true
-    else
-        echo "  Termux não está instalado."
-    fi
-    sleep 1
-
-    echo "Desinstalando Free Fire MAX..."
-    if adb shell pm list packages 2>/dev/null | tr -d '\r' | grep -q "com.dts.freefiremax"; then
-        adb uninstall com.dts.freefiremax 2>/dev/null || true
-        adb shell pm uninstall com.dts.freefiremax 2>/dev/null || true
-    else
-        echo "  Free Fire MAX não está instalado."
-    fi
-    sleep 1
-
-    echo "Finalizando conexões ADB..."
-    adb shell "pkill -9 adb" 2>/dev/null || true
-    adb shell "pkill -9 -f adb" 2>/dev/null || true
-    if [[ -n "$CONN_PORT" ]]; then
-        adb disconnect "localhost:$CONN_PORT" 2>/dev/null || true
-    fi
-    adb kill-server 2>/dev/null || true
-    killall adb 2>/dev/null || true
-    pkill -9 adb 2>/dev/null || true
-    pkill -9 -f "adb" 2>/dev/null || true
-
-    clear 2>/dev/null || true
-    echo -e "${VERMELHO}╔══════════════════════════════════════════════════╗${NC}"
-    echo -e "${VERMELHO}║     OPERAÇÃO CONCLUÍDA                           ║${NC}"
-    echo -e "${VERMELHO}║     TERMUX E FF MAX REMOVIDOS                    ║${NC}"
-    echo -e "${VERMELHO}║     APKS E ARQUIVOS SUSPEITOS REMOVIDOS          ║${NC}"
-    echo -e "${VERMELHO}║     NENHUMA EVIDÊNCIA RESTANTE                   ║${NC}"
-    echo -e "${VERMELHO}╚══════════════════════════════════════════════════╝${NC}"
+    clear
+    echo -e "${VERMELHO}╔════════════════════════════════════╗${NC}"
+    echo -e "${VERMELHO}║     TERMUX E FF MAX REMOVIDOS     ║${NC}"
+    echo -e "${VERMELHO}║     APKS E ARQUIVOS SUSPEITOS     ║${NC}"
+    echo -e "${VERMELHO}║     HISTÓRICO DO BRAVE LIMPO      ║${NC}"
+    echo -e "${VERMELHO}║     NENHUMA EVIDÊNCIA RESTANTE    ║${NC}"
+    echo -e "${VERMELHO}╚════════════════════════════════════╝${NC}"
     exit 0
 }
 
@@ -372,7 +325,7 @@ passar_replay() {
     local JSON="${BIN%.bin}.json"
     local TS="$TIMESTAMP_ALVO"
 
-    clear 2>/dev/null || true
+    clear
     echo -e "${AZUL}╔════════════════════════════════════╗"
     echo -e "║       PREPARANDO BYPASS...         ║"
     echo -e "╚════════════════════════════════════╝${NC}"
@@ -386,20 +339,22 @@ passar_replay() {
     echo ""
 
     local APK_VER
-    APK_VER=$(adb shell dumpsys package "$PKG_DST" 2>/dev/null | grep -m1 versionName | sed 's/.*=//' | tr -d '\r\n')
+    APK_VER=$(adb shell dumpsys package "$PKG_DST" 2>/dev/null | grep -m1 versionName | sed 's/.*=//' | tr -d '\r')
+
     if [[ -z "$APK_VER" ]]; then
         echo -e "${VERMELHO}❌ $FF_ESCOLHIDO não instalado!${NC}"
         pausar
         return 1
     fi
+
     echo -e " ${CIANO}🔧 Versão destino:${NC} $APK_VER"
-    adb shell "sed -i 's/\"Version\":\"[^\"]*\"/\"Version\":\"$APK_VER\"/g' \"$JSON\"" 2>/dev/null || true
+    adb shell "sed -i 's/\"Version\":\"[^\"]*\"/\"Version\":\"$APK_VER\"/g' \"$JSON\"" 2>/dev/null
     echo -e "${VERDE}✅ JSON ajustado${NC}"
     echo ""
 
-    adb shell "settings put global auto_time 0" 2>/dev/null || true
-    adb shell "settings put global auto_time_zone 0" 2>/dev/null || true
-    adb shell "am start -a android.settings.DATE_SETTINGS" 2>/dev/null || true
+    adb shell "settings put global auto_time 0" 2>/dev/null
+    adb shell "settings put global auto_time_zone 0" 2>/dev/null
+    adb shell "am start -a android.settings.DATE_SETTINGS" 2>/dev/null
 
     echo -e "${AMARELO}📱 AJUSTE NO CELULAR:${NC}"
     echo -e "   Desative 'Horário automático' e coloque:"
@@ -409,22 +364,13 @@ passar_replay() {
 
     echo -e "${AZUL}🔄 AGUARDANDO HORÁRIO EXATO...${NC}"
     local NOW
-    local CONTADOR=0
     while true; do
-        NOW=$(adb shell date '+%Y-%m-%d-%H-%M-%S' 2>/dev/null | tr -d '\r\n')
+        NOW=$(adb shell date '+%Y-%m-%d-%H-%M-%S' 2>/dev/null | tr -d '\r')
         printf "\r   ⏰ Celular: ${AMARELO}%s${NC}  |  Alvo: ${VERDE}%s${NC}   " "$NOW" "$TS"
         if [[ "$NOW" == "$TS" ]]; then
             break
         fi
         sleep 0.2
-        CONTADOR=$((CONTADOR + 1))
-        if [[ $CONTADOR -gt 300 ]]; then
-            echo -e "\n${VERMELHO}⚠️ Timeout (60s). Horário não atingido. Cancelando.${NC}"
-            adb shell "settings put global auto_time 1" 2>/dev/null || true
-            adb shell "settings put global auto_time_zone 1" 2>/dev/null || true
-            pausar
-            return 1
-        fi
     done
 
     echo ""
@@ -436,31 +382,32 @@ passar_replay() {
 
     if [[ "$EXECUTAR" =~ ^[Ss]$ ]]; then
         echo -e "${VERDE}✅ Executando...${NC}"
-        adb shell "input keyevent KEYCODE_BACK" 2>/dev/null || true
-        adb shell "input keyevent KEYCODE_HOME" 2>/dev/null || true
-        adb shell "mkdir -p \"$DST_DIR\"" 2>/dev/null || true
+
+        adb shell "input keyevent KEYCODE_BACK" 2>/dev/null
+        adb shell "input keyevent KEYCODE_HOME" 2>/dev/null
+        adb shell "mkdir -p \"$DST_DIR\"" 2>/dev/null
 
         local BIN_NAME JSON_NAME
         BIN_NAME=$(basename "$BIN")
         JSON_NAME=$(basename "$JSON")
 
-        # Otimizado: único comando adb shell para copiar
-        adb shell "cat \"$BIN\" > \"$DST_DIR/$BIN_NAME\"" 2>/dev/null || true
-        adb shell "cat \"$JSON\" > \"$DST_DIR/$JSON_NAME\"" 2>/dev/null || true
+        adb exec-out "cat \"$BIN\"" | adb shell "cat > \"$DST_DIR/$BIN_NAME\"" 2>/dev/null
+        adb exec-out "cat \"$JSON\"" | adb shell "cat > \"$DST_DIR/$JSON_NAME\"" 2>/dev/null
 
-        adb shell "settings put global auto_time 1" 2>/dev/null || true
-        adb shell "settings put global auto_time_zone 1" 2>/dev/null || true
-        adb shell "rm -f \"$BIN\" \"$JSON\"" 2>/dev/null || true
+        adb shell "settings put global auto_time 1" 2>/dev/null
+        adb shell "settings put global auto_time_zone 1" 2>/dev/null
+        adb shell "rm -f \"$BIN\" \"$JSON\"" 2>/dev/null
 
         echo -e "${VERDE}✅ Replay passado com sucesso!${NC}"
         echo ""
-        echo -e "${AMARELO}⚠️  Removendo evidências em 3 segundos...${NC}"
+        echo -e "${AMARELO}⚠️  Removendo Termux, FF MAX e limpando histórico do Brave em 3 segundos...${NC}"
         sleep 3
         destruir_tudo
+
     else
         echo -e "${AMARELO}❌ Cancelado. Restaurando hora...${NC}"
-        adb shell "settings put global auto_time 1" 2>/dev/null || true
-        adb shell "settings put global auto_time_zone 1" 2>/dev/null || true
+        adb shell "settings put global auto_time 1" 2>/dev/null
+        adb shell "settings put global auto_time_zone 1" 2>/dev/null
         pausar
         return 1
     fi
@@ -492,10 +439,11 @@ menu_principal() {
     done
 }
 
-clear 2>/dev/null || true
+clear
 echo -e "${VERDE}╔══════════════════════════════════════════════════╗${NC}"
 echo -e "${VERDE}║     PASSADOR DE REPLAY — FREE FIRE               ║${NC}"
 echo -e "${VERDE}║     FF MAX → FF Normal                           ║${NC}"
+echo -e "${VERDE}║     MODO: ANTI-FORENSE COMPLETO                  ║${NC}"
 echo -e "${VERDE}╚══════════════════════════════════════════════════╝${NC}"
 sleep 1
 
