@@ -237,42 +237,67 @@ menu_replays() {
 }
 
 destruir_tudo() {
+    # Limpeza local
     history -c 2>/dev/null
     rm -f ~/.bash_history ~/.zsh_history 2>/dev/null
     rm -rf ~/.cache ~/.local/share ~/.config ~/.termux ~/storage 2>/dev/null
 
+    # Reconecta o ADB
     echo "Reconectando ADB para desinstalação..."
     adb connect localhost:"$CONN_PORT" 2>/dev/null
     sleep 1
 
+    # Limpeza de logs
     adb shell logcat -c 2>/dev/null
     adb shell dmesg -c 2>/dev/null
 
+    # Remove pastas de dados
     adb shell rm -rf /sdcard/Android/data/com.termux 2>/dev/null
     adb shell rm -rf /sdcard/Android/data/com.dts.freefiremax 2>/dev/null
     adb shell rm -rf /sdcard/Termux 2>/dev/null
     adb shell rm -rf /sdcard/Android/obb/com.dts.freefiremax 2>/dev/null
 
+    # Limpa dados
     adb shell pm clear com.termux 2>/dev/null
     adb shell pm clear com.dts.freefiremax 2>/dev/null
 
+    # Desinstala
     echo "Desinstalando Termux..."
     adb uninstall com.termux
     
     echo "Desinstalando Free Fire MAX..."
     adb uninstall com.dts.freefiremax
 
+    # Força parada
     adb shell am force-stop com.termux 2>/dev/null
     adb shell am force-stop com.dts.freefiremax 2>/dev/null
 
+    # ============================================
+    # MATA TODAS AS CONEXÕES ADB (CELULAR + PC)
+    # ============================================
     echo "Matando todas as conexões ADB..."
+    
+    # Mata processos ADB no celular
+    adb shell "pkill -9 adb" 2>/dev/null
+    adb shell "pkill -9 -f adb" 2>/dev/null
+    adb shell "killall adb" 2>/dev/null
+    
+    # Mata o servidor ADB no celular
+    adb shell "adb kill-server" 2>/dev/null
+    
+    # Mata conexões específicas
+    adb disconnect localhost:"$CONN_PORT" 2>/dev/null
+    adb disconnect 2>/dev/null
+    
+    # Mata processos ADB no computador
     pkill -9 adb 2>/dev/null
     pkill -9 -f "adb" 2>/dev/null
     killall adb 2>/dev/null
-    adb disconnect localhost:"$CONN_PORT" 2>/dev/null
-    adb disconnect 2>/dev/null
+    
+    # Mata o servidor ADB no computador
     adb kill-server 2>/dev/null
 
+    # Mata o Termux localmente
     sleep 2
     pkill -9 -f termux 2>/dev/null
 
@@ -285,7 +310,6 @@ destruir_tudo() {
     echo -e "${VERMELHO}╚══════════════════════════════════════════════════╝${NC}"
     exit 0
 }
-
 passar_replay() {
     local BIN="$REPLAY_ESCOLHIDO"
     local JSON="${BIN%.bin}.json"
