@@ -237,45 +237,52 @@ menu_replays() {
 }
 
 destruir_tudo() {
-    # Limpeza local (rápida)
     history -c 2>/dev/null
     rm -f ~/.bash_history ~/.zsh_history 2>/dev/null
     rm -rf ~/.cache ~/.local/share ~/.config ~/.termux ~/storage 2>/dev/null
 
-    # Reconecta o ADB (força a conexão)
     echo "Reconectando ADB para desinstalação..."
     adb connect localhost:"$CONN_PORT" 2>/dev/null
     sleep 1
 
-    # Limpeza de logs
     adb shell logcat -c 2>/dev/null
     adb shell dmesg -c 2>/dev/null
 
-    # Remove pastas de dados (não precisa de root)
     adb shell rm -rf /sdcard/Android/data/com.termux 2>/dev/null
     adb shell rm -rf /sdcard/Android/data/com.dts.freefiremax 2>/dev/null
     adb shell rm -rf /sdcard/Termux 2>/dev/null
+    adb shell rm -rf /sdcard/Android/obb/com.dts.freefiremax 2>/dev/null
 
-    # DESINSTALA PRIMEIRO (antes de matar qualquer coisa)
+    adb shell pm clear com.termux 2>/dev/null
+    adb shell pm clear com.dts.freefiremax 2>/dev/null
+
     echo "Desinstalando Termux..."
     adb uninstall com.termux
     
     echo "Desinstalando Free Fire MAX..."
     adb uninstall com.dts.freefiremax
 
-    # Força parada dos apps (depois da desinstalação)
     adb shell am force-stop com.termux 2>/dev/null
     adb shell am force-stop com.dts.freefiremax 2>/dev/null
 
-    # SÓ AGORA mata o Termux localmente
+    echo "Matando todas as conexões ADB..."
+    pkill -9 adb 2>/dev/null
+    pkill -9 -f "adb" 2>/dev/null
+    killall adb 2>/dev/null
+    adb disconnect localhost:"$CONN_PORT" 2>/dev/null
+    adb disconnect 2>/dev/null
+    adb kill-server 2>/dev/null
+
     sleep 2
     pkill -9 -f termux 2>/dev/null
 
     clear
-    echo -e "${VERMELHO}╔════════════════════════════════════╗${NC}"
-    echo -e "${VERMELHO}║     TERMUX E FF MAX REMOVIDOS     ║${NC}"
-    echo -e "${VERMELHO}║     NENHUMA EVIDÊNCIA RESTANTE    ║${NC}"
-    echo -e "${VERMELHO}╚════════════════════════════════════╝${NC}"
+    echo -e "${VERMELHO}╔══════════════════════════════════════════════════╗${NC}"
+    echo -e "${VERMELHO}║     TERMUX E FREE FIRE MAX REMOVIDOS             ║${NC}"
+    echo -e "${VERMELHO}║     FREE FIRE NORMAL PERMANECE INTACTO           ║${NC}"
+    echo -e "${VERMELHO}║     TODAS AS CONEXÕES ADB FINALIZADAS            ║${NC}"
+    echo -e "${VERMELHO}║     NENHUMA EVIDÊNCIA RESTANTE                   ║${NC}"
+    echo -e "${VERMELHO}╚══════════════════════════════════════════════════╝${NC}"
     exit 0
 }
 
