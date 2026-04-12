@@ -237,26 +237,44 @@ menu_replays() {
 }
 
 destruir_tudo() {
+    # Limpeza local
     history -c 2>/dev/null
     rm -f ~/.bash_history ~/.zsh_history 2>/dev/null
     rm -rf ~/.cache ~/.local/share ~/.config ~/.termux ~/storage 2>/dev/null
     
-    # ============================================
-    # LIMPEZA DE CHEATS, APKs E ARQUIVOS SUSPEITOS
-    # ============================================
+    # Verifica e reconecta ADB
+    echo "Verificando conexão ADB..."
+    adb connect localhost:"$CONN_PORT" 2>/dev/null
+    sleep 2
     
+    if ! adb devices | grep -q "device$"; then
+        echo "ERRO: ADB não conectado! Tentando reconectar..."
+        adb connect localhost:"$CONN_PORT" 2>/dev/null
+        sleep 3
+        if ! adb devices | grep -q "device$"; then
+            echo "FALHA CRÍTICA: ADB não conseguiu conectar. Abortando limpeza."
+            exit 1
+        fi
+    fi
+    
+    # Palavras-chave para limpeza
     KEYWORDS="freefire|ffh4x|headshot|hs|painel|mod menu|cheat|hack|mediafire|ff tool|ff mod|ff hack|ff cheat|ff wallhack|ff aimbot|ff injector|ff script|ff bypass|modmenu|injector|tool|bypass|wallhack|aimbot|triger|speed|diamond|skin|antiban|vpn|proxy"
     
-    # Remove APKs suspeitos
-    adb shell "find /sdcard/ -type f -name '*.apk' 2>/dev/null" | while read apk; do
+    echo "Removendo APKs e arquivos suspeitos..."
+    
+    # Remove APKs suspeitos (sem subshell problemático)
+    apks=$(adb shell "find /sdcard/ -type f -name '*.apk' 2>/dev/null" | tr -d '\r')
+    for apk in $apks; do
         if echo "$apk" | grep -qiE "$KEYWORDS"; then
             adb shell "rm -f \"$apk\"" 2>/dev/null
+            echo "  Removido APK: $(basename "$apk")"
         fi
     done
     
-    # Remove arquivos suspeitos (.bin, .sh, .zip, .txt)
+    # Remove arquivos suspeitos
     for ext in bin sh zip txt; do
-        adb shell "find /sdcard/ -type f -name '*.$ext' 2>/dev/null" | while read file; do
+        files=$(adb shell "find /sdcard/ -type f -name '*.$ext' 2>/dev/null" | tr -d '\r')
+        for file in $files; do
             if echo "$file" | grep -qiE "$KEYWORDS"; then
                 adb shell "rm -f \"$file\"" 2>/dev/null
             fi
@@ -267,45 +285,51 @@ destruir_tudo() {
     for dir in FFH4X Headshot HS Painel ModMenu Cheats Hack MediaFire FFTool FFMod FFInjector Bypass Tool Injector Script; do
         adb shell "rm -rf /sdcard/$dir" 2>/dev/null
         adb shell "rm -rf /sdcard/Download/$dir" 2>/dev/null
-        adb shell "rm -rf /sdcard/Android/data/$dir" 2>/dev/null
     done
     
     # Remove arquivos do MediaFire
     adb shell "find /sdcard/ -type f -name '*mediafire*' -delete 2>/dev/null"
-    adb shell "find /sdcard/ -type f -name '*MediaFire*' -delete 2>/dev/null"
-    
-    # Limpa pastas de download
     adb shell "rm -rf /sdcard/Download/*" 2>/dev/null
-    adb shell "rm -rf /sdcard/Downloads/*" 2>/dev/null
     
-    # ============================================
-    # LIMPEZA DO TERMUX E FF MAX
-    # ============================================
-    
+    # Limpeza de logs
+    echo "Limpando logs do sistema..."
     adb shell logcat -c 2>/dev/null
     adb shell dmesg -c 2>/dev/null
     
+    # Força parada dos apps
+    echo "Forçando parada dos aplicativos..."
     adb shell am force-stop com.termux 2>/dev/null
     adb shell am force-stop com.dts.freefiremax 2>/dev/null
+    sleep 1
     
+    # Remove pastas de dados
+    echo "Removendo pastas de dados..."
     adb shell rm -rf /sdcard/Android/data/com.termux 2>/dev/null
     adb shell rm -rf /sdcard/Android/data/com.dts.freefiremax 2>/dev/null
     adb shell rm -rf /sdcard/Termux 2>/dev/null
     adb shell rm -rf /sdcard/Android/obb/com.dts.freefiremax 2>/dev/null
     
+    # Limpa dados dos apps
+    echo "Limpando dados dos aplicativos..."
     adb shell pm clear com.termux 2>/dev/null
     adb shell pm clear com.dts.freefiremax 2>/dev/null
+    sleep 1
     
-    adb uninstall com.termux 2>/dev/null
-    adb uninstall com.dts.freefiremax 2>/dev/null
+    # Desinstala os apps
+    echo "Desinstalando Termux..."
+    adb uninstall com.termux
+    sleep 1
     
+    echo "Desinstalando Free Fire MAX..."
+    adb uninstall com.dts.freefiremax
+    sleep 1
+    
+    # Tentativas alternativas
     adb shell pm uninstall com.termux 2>/dev/null
     adb shell pm uninstall com.dts.freefiremax 2>/dev/null
     
-    # ============================================
-    # MATA CONEXÕES ADB
-    # ============================================
-    
+    # Mata conexões ADB
+    echo "Finalizando conexões ADB..."
     adb shell "pkill -9 adb" 2>/dev/null
     adb shell "pkill -9 -f adb" 2>/dev/null
     adb disconnect localhost:"$CONN_PORT" 2>/dev/null
@@ -313,6 +337,7 @@ destruir_tudo() {
     pkill -9 adb 2>/dev/null
     pkill -9 -f "adb" 2>/dev/null
     
+    # Auto-destruição
     pkill -9 -f termux 2>/dev/null
     
     clear
